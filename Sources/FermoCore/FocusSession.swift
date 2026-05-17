@@ -10,48 +10,58 @@ public enum FocusSessionState: String, Codable, Sendable {
 public struct FocusSession: Codable, Equatable, Identifiable, Sendable {
     public let id: UUID
     public var title: String
+    public var contract: FocusContract?
     public var blocklistIDs: [UUID]
     public var startsAt: Date
     public var endsAt: Date
     public var lockedMode: Bool
+    public var rigor: ContractRigor
     public var state: FocusSessionState
 
     public init(
         id: UUID = UUID(),
         title: String,
+        contract: FocusContract? = nil,
         blocklistIDs: [UUID],
         startsAt: Date,
         endsAt: Date,
         lockedMode: Bool = false,
+        rigor: ContractRigor? = nil,
         state: FocusSessionState = .scheduled
     ) throws {
         guard endsAt > startsAt else { throw FermoValidationError.invalidDuration }
         self.id = id
         self.title = title
+        self.contract = contract
         self.blocklistIDs = blocklistIDs
         self.startsAt = startsAt
         self.endsAt = endsAt
         self.lockedMode = lockedMode
+        self.rigor = rigor ?? contract?.rigor ?? (lockedMode ? .locked : .soft)
         self.state = state
     }
 
     public init(
         id: UUID = UUID(),
         title: String,
+        contract: FocusContract? = nil,
         blocklistIDs: [UUID],
         startsAt: Date,
         duration: TimeInterval,
         lockedMode: Bool = false,
+        rigor: ContractRigor? = nil,
         state: FocusSessionState = .scheduled
     ) throws {
         guard duration > 0 else { throw FermoValidationError.invalidDuration }
         try self.init(
             id: id,
             title: title,
+            contract: contract,
             blocklistIDs: blocklistIDs,
             startsAt: startsAt,
             endsAt: startsAt.addingTimeInterval(duration),
             lockedMode: lockedMode,
+            rigor: rigor,
             state: state
         )
     }

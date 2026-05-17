@@ -15,7 +15,8 @@ public struct LockedModeGuard: Sendable {
     public init() {}
 
     public func validate(_ mutation: LockedModeMutation, for session: FocusSession, at date: Date) throws {
-        if session.lockedMode && session.isActive(at: date) {
+        _ = mutation
+        if session.isActive(at: date) && (session.lockedMode || session.rigor == .locked || session.rigor == .emergency) {
             throw LockedModeError.activeSessionLocked(until: session.endsAt)
         }
     }

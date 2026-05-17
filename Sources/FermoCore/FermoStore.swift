@@ -4,15 +4,18 @@ public struct FermoSnapshot: Codable, Equatable, Sendable {
     public var blocklists: [Blocklist]
     public var sessions: [FocusSession]
     public var schedules: [WeeklySchedule]
+    public var evidenceLog: [EvidenceLogEntry]
 
     public init(
         blocklists: [Blocklist] = [],
         sessions: [FocusSession] = [],
-        schedules: [WeeklySchedule] = []
+        schedules: [WeeklySchedule] = [],
+        evidenceLog: [EvidenceLogEntry] = []
     ) {
         self.blocklists = blocklists
         self.sessions = sessions
         self.schedules = schedules
+        self.evidenceLog = evidenceLog
     }
 }
 

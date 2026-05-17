@@ -62,14 +62,23 @@ struct FermoMenuView: View {
 
             if let session = model.activeSession {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(session.title)
+                    Text(session.contract?.taskTitle ?? session.title)
                         .font(.subheadline.weight(.semibold))
+                    if let outcome = session.contract?.intendedOutcome {
+                        Text(outcome)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
                     Text("Ends \(session.endsAt.formatted(date: .omitted, time: .shortened))")
                         .foregroundStyle(.secondary)
-                    if session.lockedMode {
-                        Label("Locked Mode", systemImage: "lock.fill")
+                    Label("\(session.rigor.rawValue.capitalized) contract", systemImage: session.rigor == .soft ? "hand.raised" : "lock.fill")
+                        .font(.caption)
+                        .foregroundStyle(session.rigor == .soft ? Color.secondary : Color.orange)
+                    if session.contract?.mode == .focusRoom {
+                        Label("Focus Room", systemImage: "door.left.hand.closed")
                             .font(.caption)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(.green)
                     }
                 }
             }
@@ -106,11 +115,23 @@ struct FermoDashboardView: View {
 
             GroupBox("Current Gate") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Core model and UI shell are ready for dogfooding.")
+                    Text("Fermo is now contract-first: task, outcome, room, rigor, and proof.")
                     Text("Network Extension, app interruption, and helper persistence still need signed-build technical validation.")
                         .foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if let contract = model.activeSession?.contract {
+                GroupBox("Active Contract") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(contract.taskTitle, systemImage: "target")
+                        Label(contract.intendedOutcome, systemImage: "checkmark.seal")
+                        Label(contract.mode.rawValue, systemImage: "door.left.hand.closed")
+                        Label(contract.rigor.rawValue, systemImage: "lock.shield")
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
 
             GroupBox("Protected Domains") {
