@@ -34,3 +34,17 @@
 swift test
 swift build
 ```
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked as local markdown under `.scratch/` unless a hosted tracker is introduced. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default Matt Pocock skill triage vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repo; read root product docs and any future `CONTEXT.md` / `docs/adr/` files before architecture-heavy work. See `docs/agents/domain.md`.

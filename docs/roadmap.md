@@ -23,6 +23,15 @@
 - Add permission/onboarding states.
 - Keep UI native and compact.
 
+Current status as of 2026-05-23:
+
+- First native shell is in place with Today, Start Contract, Rooms, Evidence, System Health, and Preferences.
+- Start Contract now builds a real `FocusContractDraft` from local presets and starts an active `FermoCore` policy instead of only triggering spike sample data.
+- Evidence capture records completed/partial/not-done/break-glass outcomes into the local policy evidence log and renders a Markdown preview.
+- Focus Room app interruption now evaluates the active policy allowlist and excludes Fermo plus critical macOS shell apps.
+- Active Session now has a dedicated timer/control surface with rule details, runtime health, Soft stop, Locked/Emergency break-glass, proof-due state, and `LockedModeGuard`-backed rule edit locking.
+- Remaining UI gaps: editable room/blocklist builder, schedule editor, Markdown file export affordance, richer preferences, and manual lifecycle/browser-matrix validation.
+
 ## Milestone 3: Contract Hardening
 
 - Persist active locked sessions across app quit, relaunch, sleep/wake, and reboot.
@@ -30,11 +39,26 @@
 - Add clear copy for what Soft, Locked, and Emergency do and do not guarantee.
 - Add break-glass flow for Emergency sessions that records the reason in the evidence log.
 
+Current status as of 2026-05-23:
+
+- Normal early stop and rule-weakening mutations are routed through `LockedModeGuard`.
+- Soft contracts can stop early with a local not-done reason.
+- Locked/Emergency contracts expose break-glass recording instead of a normal stop path.
+- Rooms visibly lock weakening edits while a protected contract is active.
+
 ## Milestone 4: Claude Design Pass
 
-- Use Claude Design after the technical spike passes.
+- Use Claude Design after the technical spike passes the local signed runtime checks and the remaining manual lifecycle checks are either completed or explicitly scoped out.
 - Cover menu bar popover, dashboard, focus contract start flow, Focus Room builder, blocklist editor, proof capture, evidence log, schedule editor, active locked state, onboarding, preferences, empty states, and errors.
 - Match Toolary dark native chrome.
+- Generate the app icon concept and prepare the later `AppIcon.appiconset` handoff.
+- Treat the design pass as direction and production UI input, not as a beta-readiness signal.
+- 2026-05-23: Claude Design bundle accepted and stored in `docs/design/claude-design-2026-05-23/`; implementation plan captured in `docs/design-implementation-plan.md`.
+
+Pre-design status as of 2026-05-17:
+
+- Signed build `0.1.0/3` validates website blocking, app interruption, and helper persistence after main-app quit on the local machine.
+- Sleep/wake, Wi-Fi change, reboot/login restore, Firefox, and private/incognito browser validation remain manual checks before any beta claim.
 
 ## Milestone 5: Toolary Beta
 

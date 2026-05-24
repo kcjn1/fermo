@@ -1,0 +1,256 @@
+/* Toolary — Design tokens */
+:root {
+  --bg-0: #0b0d10;
+  --bg-1: #11141a;
+  --bg-2: #161a21;
+  --bg-3: #1c2129;
+  --bg-4: #232932;
+  --line: #262c36;
+  --line-2: #2e3540;
+  --fg-0: #f3f4f6;
+  --fg-1: #c9ccd3;
+  --fg-2: #8b909a;
+  --fg-3: #5a606b;
+  --accent: oklch(0.86 0.17 130);   /* limonkowy */
+  --accent-2: oklch(0.72 0.17 295); /* fioletowy */
+  --warn: oklch(0.78 0.16 60);
+  --danger: oklch(0.65 0.20 25);
+  --ok: oklch(0.78 0.16 155);
+
+  --font-display: 'Inter Tight', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+}
+
+* { box-sizing: border-box; }
+
+.tlr {
+  font-family: var(--font-body);
+  background: var(--bg-0);
+  color: var(--fg-0);
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+  letter-spacing: 0;
+}
+
+.tlr-display {
+  font-family: var(--font-display);
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+.tlr-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: 'zero';
+}
+
+.tlr-grain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 3px 3px;
+  opacity: 0.6;
+  z-index: 0;
+}
+
+/* Logo mark */
+.tlr-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--fg-0);
+}
+.tlr-logo-mark {
+  width: 22px;
+  height: 22px;
+  position: relative;
+  border-radius: 5px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent) 50%, var(--accent-2) 50%, var(--accent-2) 100%);
+}
+.tlr-logo-mark::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 2px;
+  background: var(--bg-0);
+}
+.tlr-logo-mark::before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-radius: 1px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+}
+
+/* Buttons */
+.tlr-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 13px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0;
+}
+.tlr-btn-primary {
+  background: var(--accent);
+  color: #0b1004;
+}
+.tlr-btn-primary:hover { filter: brightness(1.08); }
+.tlr-btn-secondary {
+  background: var(--bg-3);
+  color: var(--fg-0);
+  border: 1px solid var(--line-2);
+}
+.tlr-btn-secondary:hover { background: var(--bg-4); }
+.tlr-btn-ghost {
+  background: transparent;
+  color: var(--fg-1);
+}
+.tlr-btn-ghost:hover { color: var(--fg-0); background: var(--bg-2); }
+.tlr-btn-lg { height: 44px; padding: 0 20px; font-size: 14px; }
+
+/* Cards */
+.tlr-card {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+/* Inputs */
+.tlr-input {
+  height: 38px;
+  padding: 0 12px;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--fg-0);
+  font-family: var(--font-body);
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+}
+.tlr-input:focus { border-color: var(--accent); }
+
+/* Badges */
+.tlr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.tlr-badge-accent { background: color-mix(in oklch, var(--accent) 15%, transparent); color: var(--accent); }
+.tlr-badge-purple { background: color-mix(in oklch, var(--accent-2) 18%, transparent); color: var(--accent-2); }
+.tlr-badge-neutral { background: var(--bg-3); color: var(--fg-1); }
+
+/* App tile - reusable */
+.tlr-app-tile {
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+.tlr-app-tile:hover {
+  border-color: var(--line-2);
+  background: var(--bg-2);
+  transform: translateY(-1px);
+}
+
+/* Scrollbar hidden inside artboards is handled by DC */
+
+/* Subtle stripe placeholder for missing imagery */
+.tlr-placeholder {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--bg-2) 0,
+    var(--bg-2) 6px,
+    var(--bg-1) 6px,
+    var(--bg-1) 12px
+  );
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* App icon — generated tile */
+.tlr-app-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0;
+  flex-shrink: 0;
+  color: #0b1004;
+}
+
+/* dotted divider */
+.tlr-hr {
+  height: 1px;
+  background: var(--line);
+  border: none;
+  margin: 0;
+}
+.tlr-hr-dashed {
+  height: 0;
+  border: none;
+  border-top: 1px dashed var(--line-2);
+}
+
+/* sidebar item */
+.tlr-side-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  color: var(--fg-1);
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 450;
+}
+.tlr-side-item:hover { background: var(--bg-2); color: var(--fg-0); }
+.tlr-side-item.active { background: var(--bg-3); color: var(--fg-0); }
+.tlr-side-item .count { margin-left: auto; color: var(--fg-3); font-family: var(--font-mono); font-size: 10px; }

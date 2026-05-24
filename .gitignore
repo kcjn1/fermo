@@ -7,3 +7,4 @@ dist/
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 Package.resolved
+Xcode/Configs/DevelopmentTeam.xcconfig

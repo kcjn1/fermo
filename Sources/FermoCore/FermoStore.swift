@@ -17,6 +17,23 @@ public struct FermoSnapshot: Codable, Equatable, Sendable {
         self.schedules = schedules
         self.evidenceLog = evidenceLog
     }
+
+    public init(policy: FermoPolicy, schedules: [WeeklySchedule] = []) {
+        self.init(
+            blocklists: policy.blocklists,
+            sessions: policy.sessions,
+            schedules: schedules,
+            evidenceLog: policy.evidenceLog
+        )
+    }
+
+    public var policy: FermoPolicy {
+        FermoPolicy(
+            blocklists: blocklists,
+            sessions: sessions,
+            evidenceLog: evidenceLog
+        )
+    }
 }
 
 public protocol FermoStore: Sendable {
@@ -25,6 +42,8 @@ public protocol FermoStore: Sendable {
 }
 
 public final class JSONFileFermoStore: FermoStore, @unchecked Sendable {
+    public static let defaultFileName = "FermoSnapshot.json"
+
     private let url: URL
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -51,5 +70,14 @@ public final class JSONFileFermoStore: FermoStore, @unchecked Sendable {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let data = try encoder.encode(snapshot)
         try data.write(to: url, options: [.atomic])
+    }
+
+    public static func defaultURL(
+        appGroupIdentifier: String,
+        fileName: String = JSONFileFermoStore.defaultFileName
+    ) -> URL? {
+        FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
+            .appendingPathComponent(fileName)
     }
 }

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Fermo — Toolary · macOS focus contract</title>
+<link rel="stylesheet" href="styles.css"/>
+<link rel="stylesheet" href="fermo.css"/>
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; background: #07090c; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; }
+  #root { height: 100vh; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="fermo-primitives.jsx"></script>
+<script type="text/babel" src="fermo-components.jsx"></script>
+<script type="text/babel" src="screens/fermo-brand.jsx"></script>
+<script type="text/babel" src="screens/fermo-ia.jsx"></script>
+<script type="text/babel" src="screens/fermo-menubar.jsx"></script>
+<script type="text/babel" src="screens/fermo-today.jsx"></script>
+<script type="text/babel" src="screens/fermo-start.jsx"></script>
+<script type="text/babel" src="screens/fermo-rooms.jsx"></script>
+<script type="text/babel" src="screens/fermo-active.jsx"></script>
+<script type="text/babel" src="screens/fermo-health.jsx"></script>
+<script type="text/babel" src="screens/fermo-states.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+  // Shorthand for Fermo-window-backed artboards
+  const FW = ({ title = 'Fermo', subtitle, active, status, statusLabel, healthBadge, children, w = 1280, h = 820 }) => (
+    <FermoWindow
+      width={w} height={h}
+      title={title} subtitle={subtitle}
+      sidebar={<FermoSidebarNav active={active} status={status} statusLabel={statusLabel} healthBadge={healthBadge}/>}
+    >{children}</FermoWindow>
+  );
+
+  const App = () => (
+    <DesignCanvas>
+      {/* ─────────────────────────────────────────────────────── */}
+      <DCSection
+        id="direction"
+        title="Direction"
+        subtitle="One quiet local macOS control room for one protected work contract."
+      >
+        <DCArtboard id="cover" label="00 · Direction" width={1320} height={780}>
+          <FermoCover/>
+        </DCArtboard>
+        <DCArtboard id="ia" label="01 · Information architecture" width={1320} height={1100}>
+          <FermoIAMap/>
+        </DCArtboard>
+        <DCArtboard id="tokens" label="02 · Design tokens" width={1320} height={1280}>
+          <FermoTokens/>
+        </DCArtboard>
+        <DCArtboard id="icon" label="03 · App icon · protected room + seal" width={1320} height={920}>
+          <FermoIconStudy/>
+        </DCArtboard>
+        <DCArtboard id="components" label="04 · Component inventory" width={1320} height={1900}>
+          <FermoComponentInventory/>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────── */}
+      <DCSection
+        id="menubar"
+        title="Menu bar popover"
+        subtitle="Compact daily-use surface. Four protection states."
+      >
+        <DCArtboard id="mb-idle"      label="05 · Idle · Ready"        width={920} height={620}>
+          <FermoMenuBar which="idle"/>
+        </DCArtboard>
+        <DCArtboard id="mb-protected" label="06 · Protected · Locked"  width={920} height={620}>
+          <FermoMenuBar which="protected"/>
+        </DCArtboard>
+        <DCArtboard id="mb-approval"  label="07 · Needs approval"      width={920} height={620}>
+          <FermoMenuBar which="approval"/>
+        </DCArtboard>
+        <DCArtboard id="mb-degraded"  label="08 · Degraded"            width={920} height={620}>
+          <FermoMenuBar which="degraded"/>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────── */}
+      <DCSection
+        id="today"
+        title="Today dashboard"
+        subtitle="First screen of the window. Status strip, next contract, system health, recent evidence."
+      >
+        <DCArtboard id="today-ready" label="09 · Today · Ready" width={1320} height={920}>
+          <FW active="today" status="ok" statusLabel="Ready" subtitle="Today">
+            <FermoToday variant="ready"/>
+          </FW>
+        </DCArtboard>
+        <DCArtboard id="today-protected" label="10 · Today · Protected (running)" width={1320} height={920}>
+          <FW active="today" status="ok" statusLabel="Protected" subtitle="Today">
+            <FermoToday variant="protected"/>
+          </FW>
+        </DCArtboard>
+        <DCArtboard id="today-approval" label="11 · Today · Needs approval" width={1320} height={920}>
+          <FW active="today" status="info" statusLabel="Needs approval" healthBadge="warn" subtitle="Today">
+            <FermoToday variant="approval"/>
+          </FW>
+        </DCArtboard>
+        <DCArtboard id="today-evidence" label="12 · Today · Needs evidence" width={1320} height={920}>
+          <FW active="today" status="warn" statusLabel="Needs evidence" subtitle="Today">
+            <FermoToday variant="evidence-missing"/>
+          </FW>
+        </DCArtboard>
+        <DCArtboard id="today-degraded" label="13 · Today · Degraded" width={1320} height={920}>
+          <FW active="today" status="warn" statusLabel="Degraded" healthBadge="warn" subtitle="Today">
+            <FermoToday variant="degraded"/>
+          </FW>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────── */}
+      <DCSection
+        id="contract"
+        title="Start a contract"
+        subtitle="Single-panel flow plus the preset picker."
+      >
+        <DCArtboard id="start" label="14 · Start Contract · single panel" width={1320} height={1180}>
+          <FW active="start" status="ok" statusLabel="Ready" subtitle="Start contract">
+            <FermoStartContract/>
+          </FW>
+        </DCArtboard>
+        <DCArtboard id="presets" label="15 · Preset picker · full grid" width={1320} height={820}>
+          <FW active="start" status="ok" statusLabel="Ready" subtitle="Presets">
+            <FermoPresetPicker/>
+          </FW>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────── */}
+      <DCSection
+        id="rooms"
+        title="Rooms"
+        subtitle="Manage reusable focus environments. Allowlist-first builder + blocklist editor."
+      >
+        <DCArtboard id="rooms-list" label="16 · Rooms · list + detail" width={1320} height={1040}>
+          <FW active="rooms" status="ok" statusLabel="Ready" subtitle="Rooms">
+            <FermoRooms selectedId="deep"/>
+          </FW>
+        </DCArtboard>
+        <DCArtboard id="rooms-builder" label="17 · Focus Room builder · allowlist-first" width={1320} height={1100}>
+          <FW active="rooms" status="ok" statusLabel="Ready" subtitle="Rooms · new">
+            <FermoRoomBuilder/>
+          </FW>
+        </DCArtboard>
+        <DCArtboard id="rooms-blocklist" label="18 · Blocklist editor" width={1320} height={1040}>
+          <FW active="rooms" status="ok" statusLabel="Ready" subtitle="Rooms · blocklist">
+            <FermoBlocklistEditor/>
+          </FW>
+        </DCArtboard>
+        <DCArtboard id="rooms-blocklist-locked" label="19 · Blocklist editor · locked during session" width={1320} height={1040}>
+          <FW active="rooms" status="ok" statusLabel="Protected" subtitle="Rooms · blocklist">
+            <FermoBlocklistEditor locked/>
+          </FW>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────── */}
+      <DCSection
+        id="active"
+        title="Active session"
+        subtitle="What you see while a contract is running. Three rigor variants + break-glass dialog."
+      >
+        <DCArtboard id="active-locked" label="20 · Active · Locked" width={1320} height={920}>
+          <FW active="today" status="ok" statusLabel="Protected" subtitle="Active session">
+            <FermoActiveSession rigor="locked"/>
+          </FW>
+        </DCArtboard>
+        <DCArtboard id="active-soft" label="21 · Active · Soft (stop available)" width={1320} height={920}>
+          <FW active="today" status="ok" statusLabel="Protected" subtitle="Active session">
+            <FermoActiveSession rigor="soft"/>
+          </FW>
+        </DCArtboard>
+        <DCArtboard id="active-emergency" label="22 · Active · Emergency (break glass)" width={1320} height={920}>
+          <FW active="today" status="ok" statusLabel="Protected" subtitle="Active session">
+            <FermoActiveSession rigor="emergency"/>
+          </FW>
+        </DCArtboard>
+        <DCArtboard id="active-degraded" label="23 · Active · Degraded" width={1320} height={960}>
+          <FW active="today" status="warn" statusLabel="Degraded" healthBadge="warn" subtitle="Active session">
+            <FermoActiveSession rigor="locked" degraded/>
+          </FW>
+        </DCArtboard>
+        <DCArtboard id="active-breakglass" label="24 · Break Glass dialog" width={1320} height={780}>
+          <FermoBreakGlass/>
+        </DCArtboard>
+        <DCArtboard id="active-proof" label="25 · Proof capture" width={1320} height={920}>
+          <FW active="today" status="warn" statusLabel="Needs evidence" subtitle="Proof capture">
+            <FermoProofCapture/>
+          </FW>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────── */}
+      <DCSection
+        id="ledger"
+        title="Evidence log · System Health · Preferences"
+        subtitle="The transparent core of the product."
+      >
+        <DCArtboard id="evidence" label="26 · Evidence log" width={1320} height={920}>
+          <FW active="evidence" status="ok" statusLabel="Ready" subtitle="Evidence">
+            <FermoEvidenceLog/>
+          </FW>
+        </DCArtboard>
+        <DCArtboard id="health" label="27 · System Health" width={1320} height={1240}>
+          <FW active="health" status="warn" statusLabel="Mostly protected" healthBadge="warn" subtitle="System Health">
+            <FermoSystemHealth/>
+          </FW>
+        </DCArtboard>
+        <DCArtboard id="prefs" label="28 · Preferences" width={1320} height={920}>
+          <FW active="prefs" status="ok" statusLabel="Ready" subtitle="Preferences">
+            <FermoPreferences tab="defaults"/>
+          </FW>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────── */}
+      <DCSection
+        id="states"
+        title="Empty · permission · degraded · error states"
+        subtitle="The honest edge cases. Every surface has one."
+      >
+        <DCArtboard id="states-gallery" label="29 · State gallery" width={1320} height={1700}>
+          <FermoStatesGallery/>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ─────────────────────────────────────────────────────── */}
+      <DCSection
+        id="handoff"
+        title="SwiftUI handoff"
+        subtitle="View hierarchy, state model, reusable components, and what stays native."
+      >
+        <DCArtboard id="handoff-notes" label="30 · Implementation notes" width={1320} height={920}>
+          <FermoHandoff/>
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

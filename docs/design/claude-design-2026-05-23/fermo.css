@@ -1,0 +1,314 @@
+/* Fermo — design tokens (layered over Toolary base) */
+:root {
+  /* Surfaces — dark graphite/ink, NOT pure black */
+  --f-bg-0: #07090c;       /* desktop wallpaper / outside window */
+  --f-bg-1: #0d1014;       /* window background */
+  --f-bg-2: #14181e;       /* sidebar / elevated panel */
+  --f-bg-3: #1a1f27;       /* row, card */
+  --f-bg-4: #232932;       /* popover / menu surface */
+  --f-bg-5: #2c333d;       /* hover, raised */
+
+  --f-line: #1f242c;       /* hairline */
+  --f-line-2: #2a313c;     /* stronger separator */
+  --f-line-3: #3a424f;     /* control border */
+
+  /* Foreground */
+  --f-fg-0: #e8eaee;
+  --f-fg-1: #b6bac2;
+  --f-fg-2: #868c96;       /* labels, secondary */
+  --f-fg-3: #5b626d;       /* tertiary */
+  --f-fg-4: #3d434c;       /* disabled */
+
+  /* State colors — restrained, dark-mode tuned */
+  --f-ok:    oklch(0.74 0.09 168);   /* teal/green — protected, ready */
+  --f-ok-bg: oklch(0.74 0.09 168 / 0.14);
+  --f-info:  oklch(0.72 0.10 232);   /* macOS-leaning blue — needs approval */
+  --f-info-bg: oklch(0.72 0.10 232 / 0.14);
+  --f-warn:  oklch(0.78 0.11 75);    /* amber — degraded, unverified */
+  --f-warn-bg: oklch(0.78 0.11 75 / 0.14);
+  --f-danger: oklch(0.66 0.16 25);   /* red — real failures only */
+  --f-danger-bg: oklch(0.66 0.16 25 / 0.14);
+  --f-muted: var(--f-fg-3);
+  --f-muted-bg: rgba(255,255,255,0.05);
+
+  /* Accent (Fermo brand) — same teal-green family as ok */
+  --f-brand: oklch(0.78 0.10 172);
+  --f-brand-deep: oklch(0.55 0.09 172);
+
+  /* Type — Apple system stack */
+  --f-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro", "Helvetica Neue", system-ui, sans-serif;
+  --f-font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro", "Helvetica Neue", system-ui, sans-serif;
+  --f-font-mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+
+  /* Type scale (px) */
+  --f-fs-10: 10px;   /* caption / badge */
+  --f-fs-11: 11px;   /* tag, secondary label */
+  --f-fs-12: 12px;   /* default secondary */
+  --f-fs-13: 13px;   /* body, controls */
+  --f-fs-14: 14px;   /* emphasized */
+  --f-fs-16: 16px;   /* section title */
+  --f-fs-19: 19px;   /* screen title */
+  --f-fs-26: 26px;   /* big number (time remaining) */
+  --f-fs-44: 44px;   /* hero number */
+
+  /* Radii */
+  --f-r-4: 4px;
+  --f-r-6: 6px;
+  --f-r-8: 8px;
+  --f-r-10: 10px;
+  --f-r-12: 12px;
+  --f-r-14: 14px;
+}
+
+.fermo {
+  font-family: var(--f-font);
+  color: var(--f-fg-0);
+  font-size: var(--f-fs-13);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: 0;
+  font-feature-settings: "kern", "liga", "calt", "ss01";
+}
+
+.fermo-mono { font-family: var(--f-font-mono); }
+.fermo-display { font-family: var(--f-font-display); letter-spacing: 0; }
+
+/* Selection */
+.fermo ::selection { background: oklch(0.74 0.09 168 / 0.3); }
+
+/* Inputs */
+.fermo-input {
+  height: 28px;
+  padding: 0 10px;
+  background: var(--f-bg-1);
+  border: 1px solid var(--f-line-3);
+  border-radius: 6px;
+  color: var(--f-fg-0);
+  font: 500 13px var(--f-font);
+  outline: none;
+  width: 100%;
+  letter-spacing: 0;
+}
+.fermo-input:focus {
+  border-color: var(--f-ok);
+  box-shadow: 0 0 0 3px oklch(0.74 0.09 168 / 0.18);
+}
+.fermo-input::placeholder { color: var(--f-fg-3); }
+.fermo-textarea {
+  min-height: 56px;
+  padding: 8px 10px;
+  background: var(--f-bg-1);
+  border: 1px solid var(--f-line-3);
+  border-radius: 6px;
+  color: var(--f-fg-0);
+  font: 500 13px var(--f-font);
+  outline: none;
+  width: 100%;
+  resize: none;
+  line-height: 1.45;
+}
+.fermo-textarea:focus {
+  border-color: var(--f-ok);
+  box-shadow: 0 0 0 3px oklch(0.74 0.09 168 / 0.18);
+}
+
+/* Buttons — native macOS height (22-28) */
+.fermo-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 11px;
+  border-radius: 6px;
+  font: 500 13px var(--f-font);
+  letter-spacing: 0;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+.fermo-btn-primary {
+  background: var(--f-ok);
+  color: #061410;
+  font-weight: 600;
+}
+.fermo-btn-primary:hover { filter: brightness(1.06); }
+.fermo-btn-secondary {
+  background: var(--f-bg-3);
+  border-color: var(--f-line-3);
+  color: var(--f-fg-0);
+}
+.fermo-btn-secondary:hover { background: var(--f-bg-5); }
+.fermo-btn-ghost {
+  background: transparent;
+  color: var(--f-fg-1);
+}
+.fermo-btn-ghost:hover { background: var(--f-bg-3); color: var(--f-fg-0); }
+.fermo-btn-danger {
+  background: transparent;
+  border-color: oklch(0.66 0.16 25 / 0.4);
+  color: var(--f-danger);
+}
+.fermo-btn-danger:hover { background: var(--f-danger-bg); }
+.fermo-btn-lg { height: 30px; padding: 0 14px; font-size: 13px; }
+.fermo-btn-sm { height: 20px; padding: 0 8px; font-size: 12px; border-radius: 5px; }
+.fermo-btn[disabled] { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+
+/* Segmented control */
+.fermo-seg {
+  display: inline-flex;
+  background: var(--f-bg-1);
+  border: 1px solid var(--f-line-3);
+  border-radius: 6px;
+  padding: 1px;
+  gap: 1px;
+}
+.fermo-seg > button {
+  height: 22px;
+  padding: 0 10px;
+  background: transparent;
+  border: none;
+  color: var(--f-fg-1);
+  font: 500 12px var(--f-font);
+  border-radius: 5px;
+  cursor: pointer;
+  letter-spacing: 0;
+}
+.fermo-seg > button.is-on {
+  background: var(--f-bg-5);
+  color: var(--f-fg-0);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* Pill / chip */
+.fermo-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font: 500 11px var(--f-font);
+  letter-spacing: 0;
+  background: var(--f-bg-3);
+  color: var(--f-fg-1);
+  border: 1px solid var(--f-line);
+}
+.fermo-chip-mono {
+  font-family: var(--f-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* Status pill — small inline state badge */
+.fermo-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 22px;
+  padding: 0 9px 0 8px;
+  border-radius: 11px;
+  font: 600 11px var(--f-font);
+  letter-spacing: 0.01em;
+  border: 1px solid transparent;
+}
+.fermo-status .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px currentColor;
+  opacity: 1;
+}
+.fermo-status .dot.solid { box-shadow: none; }
+.fermo-status-ok     { background: var(--f-ok-bg);     color: var(--f-ok);     border-color: oklch(0.74 0.09 168 / 0.3); }
+.fermo-status-info   { background: var(--f-info-bg);   color: var(--f-info);   border-color: oklch(0.72 0.10 232 / 0.3); }
+.fermo-status-warn   { background: var(--f-warn-bg);   color: var(--f-warn);   border-color: oklch(0.78 0.11 75  / 0.3); }
+.fermo-status-danger { background: var(--f-danger-bg); color: var(--f-danger); border-color: oklch(0.66 0.16 25  / 0.35); }
+.fermo-status-muted  { background: var(--f-muted-bg);  color: var(--f-fg-2);   border-color: var(--f-line-2); }
+
+/* Hairline divider */
+.fermo-hr { height: 1px; background: var(--f-line); border: none; }
+
+/* Row (used in lists, evidence, health) */
+.fermo-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 6px;
+}
+.fermo-row + .fermo-row { border-top: 1px solid var(--f-line); border-radius: 0; }
+.fermo-row:hover { background: var(--f-bg-3); }
+
+/* Sidebar item */
+.fermo-side {
+  display: flex; align-items: center; gap: 8px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 5px;
+  color: var(--f-fg-1);
+  font: 500 13px var(--f-font);
+  cursor: pointer;
+  letter-spacing: 0;
+}
+.fermo-side .icn { color: var(--f-fg-2); }
+.fermo-side:hover { background: rgba(255,255,255,0.04); color: var(--f-fg-0); }
+.fermo-side.active { background: oklch(0.74 0.09 168 / 0.14); color: var(--f-fg-0); }
+.fermo-side.active .icn { color: var(--f-ok); }
+.fermo-side .kbd {
+  margin-left: auto;
+  font: 500 10px var(--f-font-mono);
+  color: var(--f-fg-3);
+  letter-spacing: 0;
+}
+
+/* Section header label */
+.fermo-section-label {
+  font: 600 10px var(--f-font);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--f-fg-3);
+  padding: 0 9px;
+  margin: 14px 0 4px;
+}
+
+/* Card — used sparingly, no nesting */
+.fermo-card {
+  background: var(--f-bg-2);
+  border: 1px solid var(--f-line);
+  border-radius: 10px;
+}
+
+/* Subtle stripe placeholder */
+.fermo-stripe {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255,255,255,0.02) 0,
+    rgba(255,255,255,0.02) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+/* Key value pair */
+.fermo-kv-label {
+  font: 500 11px var(--f-font);
+  color: var(--f-fg-2);
+  letter-spacing: 0.01em;
+}
+.fermo-kv-value {
+  font: 500 13px var(--f-font);
+  color: var(--f-fg-0);
+}
+
+/* Keyboard hint */
+.fermo-kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  font: 500 10px var(--f-font-mono);
+  background: var(--f-bg-3);
+  border: 1px solid var(--f-line-2);
+  border-radius: 3px;
+  color: var(--f-fg-2);
+}
+
+/* Tabular numbers for timers */
+.fermo-tnum { font-variant-numeric: tabular-nums; }
+
+/* macOS-style focus ring helper */
+.fermo-focus:focus-visible { outline: 2px solid var(--f-ok); outline-offset: 1px; }

@@ -1,0 +1,9 @@
+// Copy this file to DevelopmentTeam.xcconfig if you want a local override,
+// then set DEVELOPMENT_TEAM to the Apple Developer Team ID that has the
+// Network Extension content-filter entitlement approved.
+
+DEVELOPMENT_TEAM =
+PRODUCT_BUNDLE_IDENTIFIER = com.toolary.fermo
+FERMO_FILTER_BUNDLE_IDENTIFIER = com.toolary.fermo.filter
+FERMO_HELPER_BUNDLE_IDENTIFIER = com.toolary.fermo.helper
+FERMO_APP_GROUP_IDENTIFIER = group.com.toolary.fermo

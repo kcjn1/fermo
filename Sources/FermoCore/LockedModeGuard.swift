@@ -20,4 +20,10 @@ public struct LockedModeGuard: Sendable {
             throw LockedModeError.activeSessionLocked(until: session.endsAt)
         }
     }
+
+    public func validate(_ mutation: LockedModeMutation, for policy: FermoPolicy, at date: Date) throws {
+        for session in policy.activeSessions(at: date) {
+            try validate(mutation, for: session, at: date)
+        }
+    }
 }

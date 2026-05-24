@@ -31,6 +31,10 @@ let package = Package(
         .testTarget(
             name: "FermoCoreTests",
             dependencies: ["FermoCore"]
+        ),
+        .testTarget(
+            name: "FermoSystemTests",
+            dependencies: ["FermoSystem"]
         )
     ]
 )

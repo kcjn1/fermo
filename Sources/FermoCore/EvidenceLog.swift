@@ -4,6 +4,7 @@ public enum EvidenceOutcome: String, Codable, CaseIterable, Sendable {
     case completed
     case partiallyCompleted
     case notCompleted
+    case breakGlass
 }
 
 public enum EvidenceArtifact: Codable, Equatable, Sendable {
@@ -12,6 +13,7 @@ public enum EvidenceArtifact: Codable, Equatable, Sendable {
     case commitHash(String)
     case screenshotPath(String)
     case notDoneReason(String)
+    case breakGlassReason(String)
 }
 
 public struct EvidenceLogEntry: Codable, Equatable, Identifiable, Sendable {
@@ -151,6 +153,8 @@ public struct EvidenceMarkdownRenderer: Sendable {
             return "- Screenshot: `\(value)`"
         case .notDoneReason(let value):
             return "- Not done: \(value)"
+        case .breakGlassReason(let value):
+            return "- Break glass: \(value)"
         }
     }
 

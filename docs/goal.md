@@ -18,7 +18,7 @@ Product direction:
 - V1 has no paid AI dependency. Use local deterministic presets.
 - The differentiators are Focus Contract, Focus Room Mode, Soft/Locked/Emergency rigor, proof capture, and local Markdown evidence logs.
 - Keep the app local-first and honest about macOS permissions.
-- Do not claim beta readiness until Network Extension, app interruption, and helper persistence pass signed-build validation.
+- Do not claim beta readiness until Network Extension, app interruption, helper persistence, and lifecycle/browser-matrix checks pass signed-build validation.
 
 Implementation target:
 1. Preserve the existing Swift Package structure.
@@ -31,7 +31,7 @@ Implementation target:
    - proof capture;
    - evidence log rendering.
 3. Keep macOS system integrations behind FermoSystem adapters.
-4. Keep the real Network Extension work as a signed Xcode spike unless entitlements/signing are available in this environment.
+4. Keep the real Network Extension work as a signed Xcode spike unless entitlements/signing and macOS approvals are available in this environment.
 5. Add or update tests for every FermoCore behavior.
 
 Verification:
