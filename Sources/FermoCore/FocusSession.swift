@@ -11,6 +11,7 @@ public struct FocusSession: Codable, Equatable, Identifiable, Sendable {
     public let id: UUID
     public var title: String
     public var contract: FocusContract?
+    public var scheduleID: UUID?
     public var blocklistIDs: [UUID]
     public var startsAt: Date
     public var endsAt: Date
@@ -22,6 +23,7 @@ public struct FocusSession: Codable, Equatable, Identifiable, Sendable {
         id: UUID = UUID(),
         title: String,
         contract: FocusContract? = nil,
+        scheduleID: UUID? = nil,
         blocklistIDs: [UUID],
         startsAt: Date,
         endsAt: Date,
@@ -33,6 +35,7 @@ public struct FocusSession: Codable, Equatable, Identifiable, Sendable {
         self.id = id
         self.title = title
         self.contract = contract
+        self.scheduleID = scheduleID
         self.blocklistIDs = blocklistIDs
         self.startsAt = startsAt
         self.endsAt = endsAt
@@ -45,6 +48,7 @@ public struct FocusSession: Codable, Equatable, Identifiable, Sendable {
         id: UUID = UUID(),
         title: String,
         contract: FocusContract? = nil,
+        scheduleID: UUID? = nil,
         blocklistIDs: [UUID],
         startsAt: Date,
         duration: TimeInterval,
@@ -57,6 +61,7 @@ public struct FocusSession: Codable, Equatable, Identifiable, Sendable {
             id: id,
             title: title,
             contract: contract,
+            scheduleID: scheduleID,
             blocklistIDs: blocklistIDs,
             startsAt: startsAt,
             endsAt: startsAt.addingTimeInterval(duration),

@@ -1,10 +1,58 @@
 import Foundation
 
+public struct FermoPreferences: Codable, Equatable, Sendable {
+    public var evidenceExportDirectoryPath: String?
+    public var defaultPresetID: String?
+    public var defaultRigor: ContractRigor
+    public var defaultDurationMinutes: Int
+
+    public init(
+        evidenceExportDirectoryPath: String? = nil,
+        defaultPresetID: String? = nil,
+        defaultRigor: ContractRigor = .locked,
+        defaultDurationMinutes: Int = 90
+    ) {
+        let trimmed = evidenceExportDirectoryPath?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.evidenceExportDirectoryPath = trimmed?.isEmpty == true ? nil : trimmed
+        let trimmedPresetID = defaultPresetID?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.defaultPresetID = trimmedPresetID?.isEmpty == true ? nil : trimmedPresetID
+        self.defaultRigor = defaultRigor
+        self.defaultDurationMinutes = min(max(defaultDurationMinutes, 25), 180)
+    }
+
+    public init(evidenceExportDirectoryPath: String?) {
+        self.init(
+            evidenceExportDirectoryPath: evidenceExportDirectoryPath,
+            defaultPresetID: nil,
+            defaultRigor: .locked,
+            defaultDurationMinutes: 90
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case evidenceExportDirectoryPath
+        case defaultPresetID
+        case defaultRigor
+        case defaultDurationMinutes
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            evidenceExportDirectoryPath: try container.decodeIfPresent(String.self, forKey: .evidenceExportDirectoryPath),
+            defaultPresetID: try container.decodeIfPresent(String.self, forKey: .defaultPresetID),
+            defaultRigor: try container.decodeIfPresent(ContractRigor.self, forKey: .defaultRigor) ?? .locked,
+            defaultDurationMinutes: try container.decodeIfPresent(Int.self, forKey: .defaultDurationMinutes) ?? 90
+        )
+    }
+}
+
 public struct FermoSnapshot: Codable, Equatable, Sendable {
     public var blocklists: [Blocklist]
     public var sessions: [FocusSession]
     public var schedules: [WeeklySchedule]
     public var evidenceLog: [EvidenceLogEntry]
+    public var preferences: FermoPreferences
 
     public init(
         blocklists: [Blocklist] = [],
@@ -12,18 +60,44 @@ public struct FermoSnapshot: Codable, Equatable, Sendable {
         schedules: [WeeklySchedule] = [],
         evidenceLog: [EvidenceLogEntry] = []
     ) {
+        self.init(
+            blocklists: blocklists,
+            sessions: sessions,
+            schedules: schedules,
+            evidenceLog: evidenceLog,
+            preferences: FermoPreferences()
+        )
+    }
+
+    public init(
+        blocklists: [Blocklist] = [],
+        sessions: [FocusSession] = [],
+        schedules: [WeeklySchedule] = [],
+        evidenceLog: [EvidenceLogEntry] = [],
+        preferences: FermoPreferences
+    ) {
         self.blocklists = blocklists
         self.sessions = sessions
         self.schedules = schedules
         self.evidenceLog = evidenceLog
+        self.preferences = preferences
     }
 
     public init(policy: FermoPolicy, schedules: [WeeklySchedule] = []) {
+        self.init(policy: policy, schedules: schedules, preferences: FermoPreferences())
+    }
+
+    public init(
+        policy: FermoPolicy,
+        schedules: [WeeklySchedule] = [],
+        preferences: FermoPreferences
+    ) {
         self.init(
             blocklists: policy.blocklists,
             sessions: policy.sessions,
             schedules: schedules,
-            evidenceLog: policy.evidenceLog
+            evidenceLog: policy.evidenceLog,
+            preferences: preferences
         )
     }
 
@@ -33,6 +107,23 @@ public struct FermoSnapshot: Codable, Equatable, Sendable {
             sessions: sessions,
             evidenceLog: evidenceLog
         )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case blocklists
+        case sessions
+        case schedules
+        case evidenceLog
+        case preferences
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.blocklists = try container.decodeIfPresent([Blocklist].self, forKey: .blocklists) ?? []
+        self.sessions = try container.decodeIfPresent([FocusSession].self, forKey: .sessions) ?? []
+        self.schedules = try container.decodeIfPresent([WeeklySchedule].self, forKey: .schedules) ?? []
+        self.evidenceLog = try container.decodeIfPresent([EvidenceLogEntry].self, forKey: .evidenceLog) ?? []
+        self.preferences = try container.decodeIfPresent(FermoPreferences.self, forKey: .preferences) ?? FermoPreferences()
     }
 }
 

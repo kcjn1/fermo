@@ -15,6 +15,7 @@ public struct ContentFilterRuleSnapshot: Codable, Equatable, Sendable {
     public var mode: FocusMode
     public var blockedDomains: [DomainRule]
     public var allowedDomains: [DomainRule]
+    public var allowedDomainGroups: [[DomainRule]]
     public var expiresAt: Date?
 
     public init(
@@ -24,6 +25,7 @@ public struct ContentFilterRuleSnapshot: Codable, Equatable, Sendable {
         mode: FocusMode = .blocklist,
         blockedDomains: [DomainRule] = [],
         allowedDomains: [DomainRule] = [],
+        allowedDomainGroups: [[DomainRule]] = [],
         expiresAt: Date? = nil
     ) {
         self.version = version
@@ -32,6 +34,7 @@ public struct ContentFilterRuleSnapshot: Codable, Equatable, Sendable {
         self.mode = mode
         self.blockedDomains = blockedDomains
         self.allowedDomains = allowedDomains
+        self.allowedDomainGroups = allowedDomainGroups.map { $0.deduplicatedByNormalizedPattern() }
         self.expiresAt = expiresAt
     }
 
@@ -44,8 +47,9 @@ public struct ContentFilterRuleSnapshot: Codable, Equatable, Sendable {
             generatedAt: date,
             activeSessionIDs: activeSessions.map(\.id),
             mode: isFocusRoom ? .focusRoom : .blocklist,
-            blockedDomains: isFocusRoom ? [] : policy.activeBlocklists(at: date).flatMap(\.domainRules).deduplicated(),
-            allowedDomains: focusRoomSessions.compactMap(\.contract).flatMap(\.allowedDomains).deduplicated(),
+            blockedDomains: policy.activeBlocklists(at: date).flatMap(\.domainRules).deduplicatedByNormalizedPattern(),
+            allowedDomains: focusRoomSessions.compactMap(\.contract).flatMap(\.allowedDomains).deduplicatedByNormalizedPattern(),
+            allowedDomainGroups: focusRoomSessions.compactMap(\.contract).map { $0.allowedDomains.deduplicatedByNormalizedPattern() },
             expiresAt: activeSessions.map(\.endsAt).max()
         )
     }
@@ -84,7 +88,18 @@ public struct ContentFilterRuleSnapshot: Codable, Equatable, Sendable {
         case .blocklist:
             return blockedDomains.contains { $0.matches(host: host) } ? .block : .allow
         case .focusRoom:
-            return allowedDomains.contains { $0.matches(host: host) } ? .allow : .block
+            if blockedDomains.contains(where: { $0.matches(host: host) }) {
+                return .block
+            }
+
+            let groups = effectiveAllowedDomainGroups
+            guard !groups.isEmpty else {
+                return .block
+            }
+
+            return groups.allSatisfy { group in
+                group.contains { $0.matches(host: host) }
+            } ? .allow : .block
         }
     }
 
@@ -94,6 +109,39 @@ public struct ContentFilterRuleSnapshot: Codable, Equatable, Sendable {
 
     public var normalizedAllowedDomains: [String] {
         allowedDomains.map(\.normalizedPattern).sorted()
+    }
+
+    private var effectiveAllowedDomainGroups: [[DomainRule]] {
+        if !allowedDomainGroups.isEmpty {
+            return allowedDomainGroups
+        }
+
+        return allowedDomains.isEmpty ? [] : [allowedDomains]
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case version
+        case generatedAt
+        case activeSessionIDs
+        case mode
+        case blockedDomains
+        case allowedDomains
+        case allowedDomainGroups
+        case expiresAt
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            version: try container.decodeIfPresent(Int.self, forKey: .version) ?? Self.currentVersion,
+            generatedAt: try container.decodeIfPresent(Date.self, forKey: .generatedAt) ?? Date(),
+            activeSessionIDs: try container.decodeIfPresent([UUID].self, forKey: .activeSessionIDs) ?? [],
+            mode: try container.decodeIfPresent(FocusMode.self, forKey: .mode) ?? .blocklist,
+            blockedDomains: try container.decodeIfPresent([DomainRule].self, forKey: .blockedDomains) ?? [],
+            allowedDomains: try container.decodeIfPresent([DomainRule].self, forKey: .allowedDomains) ?? [],
+            allowedDomainGroups: try container.decodeIfPresent([[DomainRule]].self, forKey: .allowedDomainGroups) ?? [],
+            expiresAt: try container.decodeIfPresent(Date.self, forKey: .expiresAt)
+        )
     }
 }
 
@@ -128,13 +176,6 @@ public struct ContentFilterRuleSnapshotStore: Sendable {
         FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier)?
             .appendingPathComponent(fileName)
-    }
-}
-
-private extension Array where Element: Hashable {
-    func deduplicated() -> [Element] {
-        var seen = Set<Element>()
-        return filter { seen.insert($0).inserted }
     }
 }
 

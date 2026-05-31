@@ -4,6 +4,7 @@ public enum EvidenceRecordError: Error, Equatable, Sendable {
     case missingProof
     case missingNotDoneReason
     case missingBreakGlassReason
+    case breakGlassNotApplicable
     case lockedSessionStillActive(until: Date)
     case sessionNotFound(UUID)
 }
@@ -97,8 +98,16 @@ public struct EvidenceRecorder: Sendable {
             throw EvidenceRecordError.lockedSessionStillActive(until: session.endsAt)
         }
 
-        if draft.outcome == .breakGlass, breakGlassReason == nil {
-            throw EvidenceRecordError.missingBreakGlassReason
+        if draft.outcome == .breakGlass {
+            // Break-glass is the early-exit path for a still-running Locked/Emergency session.
+            // Rejecting it on soft or already-ended sessions stops the record() cancellation
+            // branch from silently downgrading a session that was never glass-locked.
+            guard session.isActive(at: endedAt), session.rigor != .soft else {
+                throw EvidenceRecordError.breakGlassNotApplicable
+            }
+            if breakGlassReason == nil {
+                throw EvidenceRecordError.missingBreakGlassReason
+            }
         }
 
         let notDoneReason = trimmedOptional(draft.notDoneReason)

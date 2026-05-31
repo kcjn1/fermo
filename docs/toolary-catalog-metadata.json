@@ -1,0 +1,39 @@
+{
+  "product": "Fermo",
+  "status": "comingSoon",
+  "version": "0.1.0",
+  "releaseChannel": "beta",
+  "distribution": "direct-macos",
+  "minimumMacOS": "14.0",
+  "releaseGate": {
+    "requiredScript": "scripts/check-toolary-metadata-gate.sh",
+    "requiredStatusBeforeGate": "comingSoon",
+    "publishableStatusAfterGate": "beta",
+    "requiresSignedNotarizedApp": true,
+    "requiresRuntimeMatrix": true,
+    "requiresArtifactChecksum": true
+  },
+  "locales": {
+    "en": {
+      "title": "Fermo",
+      "shortDescription": "Local-first focus contracts for macOS.",
+      "description": "Fermo helps you start one protected work session with a clear task, allowed tools, blocked distractions, and a local evidence log at the end. It is a native macOS utility built around Focus Rooms, Blocklists, schedules, and break-glass transparency.\n\nFermo runs locally. It uses macOS system permissions to apply website and app rules during active sessions. It does not use cloud sync or paid AI in this version.",
+      "privacy": "Fermo stores rooms, sessions, schedules, preferences, diagnostics, and evidence logs locally on your Mac. Evidence export writes Markdown files only to the folder you choose. Fermo does not upload your focus history, evidence, app rules, or browsing rules to Toolary servers in this version.\n\nFermo requires macOS permissions for system extensions, network filtering, helper login items, and app launch enforcement. These permissions are used only to apply the focus contract you start or schedule.",
+      "permissions": "Fermo needs macOS approval before it can protect a session. Network Extension approval enables website blocking. Endpoint Security approval enables app launch enforcement. Login Item approval lets the helper restore active sessions after relaunch or login."
+    },
+    "pl": {
+      "title": "Fermo",
+      "shortDescription": "Lokalne kontrakty skupienia dla macOS.",
+      "description": "Fermo pomaga rozpoczac jedna chroniona sesje pracy z jasnym zadaniem, dozwolonymi narzedziami, zablokowanymi rozpraszaczami i lokalnym dziennikiem dowodow na koncu. To natywne narzedzie macOS oparte na Focus Rooms, Blocklists, harmonogramach i przejrzystym break-glass.\n\nFermo dziala lokalnie. Uzywa uprawnien macOS, zeby stosowac reguly stron i aplikacji podczas aktywnych sesji. W tej wersji nie ma cloud sync ani platnego AI.",
+      "privacy": "Fermo przechowuje pokoje, sesje, harmonogramy, preferencje, diagnostyke i dziennik dowodow lokalnie na Twoim Macu. Eksport dowodow zapisuje pliki Markdown tylko w folderze, ktory wybierzesz. W tej wersji Fermo nie wysyla historii skupienia, dowodow, regul aplikacji ani regul stron na serwery Toolary.\n\nFermo wymaga uprawnien macOS dla system extensions, filtrowania sieci, helpera w Login Items i egzekwowania uruchamiania aplikacji. Te uprawnienia sa uzywane tylko do stosowania kontraktu skupienia, ktory uruchomisz albo zaplanujesz.",
+      "permissions": "Fermo potrzebuje zgody macOS, zanim bedzie moglo chronic sesje. Network Extension umozliwia blokowanie stron. Endpoint Security umozliwia egzekwowanie uruchamiania aplikacji. Login Item pozwala helperowi przywracac aktywne sesje po ponownym uruchomieniu aplikacji albo zalogowaniu."
+    },
+    "de": {
+      "title": "Fermo",
+      "shortDescription": "Lokale Fokusvertraege fuer macOS.",
+      "description": "Fermo hilft dir, eine geschuetzte Arbeitssitzung mit klarer Aufgabe, erlaubten Werkzeugen, blockierten Ablenkungen und lokalem Evidence Log zu starten. Es ist eine native macOS App mit Focus Rooms, Blocklists, Zeitplaenen und transparentem Break-glass.\n\nFermo laeuft lokal. Es nutzt macOS-Berechtigungen, um Website- und App-Regeln waehrend aktiver Sitzungen anzuwenden. Diese Version enthaelt keinen Cloud Sync und keine bezahlte KI.",
+      "privacy": "Fermo speichert Raeume, Sitzungen, Zeitplaene, Einstellungen, Diagnosen und Evidence Logs lokal auf deinem Mac. Der Evidence Export schreibt Markdown-Dateien nur in den Ordner, den du auswaehlst. In dieser Version laedt Fermo deine Fokus-Historie, Nachweise, App-Regeln oder Website-Regeln nicht auf Toolary-Server hoch.\n\nFermo benoetigt macOS-Berechtigungen fuer Systemerweiterungen, Netzwerkfilterung, Login-Item-Helper und App-Launch-Enforcement. Diese Berechtigungen werden nur genutzt, um den Fokusvertrag umzusetzen, den du startest oder planst.",
+      "permissions": "Fermo benoetigt macOS-Freigaben, bevor eine Sitzung geschuetzt werden kann. Die Network Extension aktiviert Website-Blocking. Endpoint Security aktiviert App-Launch-Enforcement. Das Login Item erlaubt dem Helper, aktive Sitzungen nach App-Neustart oder Login wiederherzustellen."
+    }
+  }
+}

@@ -8,6 +8,16 @@
 
 /* Begin PBXBuildFile section */
 		7A0B00000000000000000040 /* Sources/FermoApp/FermoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B00000000000000000010 /* Sources/FermoApp/FermoApp.swift */; };
+		7A0B000000000000000000C0 /* Sources/FermoApp/FermoComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B000000000000000000C1 /* Sources/FermoApp/FermoComponents.swift */; };
+		7A0B000000000000000000C2 /* Sources/FermoApp/FermoSystemHealthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B000000000000000000C3 /* Sources/FermoApp/FermoSystemHealthView.swift */; };
+		7A0B000000000000000000C4 /* Sources/FermoApp/FermoEvidenceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B000000000000000000C5 /* Sources/FermoApp/FermoEvidenceView.swift */; };
+		7A0B000000000000000000C6 /* Sources/FermoApp/FermoPreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B000000000000000000C7 /* Sources/FermoApp/FermoPreferencesView.swift */; };
+		7A0B000000000000000000C8 /* Sources/FermoApp/FermoRoomsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B000000000000000000C9 /* Sources/FermoApp/FermoRoomsView.swift */; };
+		7A0B000000000000000000CA /* Sources/FermoApp/FermoStartContractView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B000000000000000000CB /* Sources/FermoApp/FermoStartContractView.swift */; };
+		7A0B000000000000000000CC /* Sources/FermoApp/FermoSessionViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B000000000000000000CD /* Sources/FermoApp/FermoSessionViews.swift */; };
+		7A0B000000000000000000CE /* Sources/FermoApp/FermoNavigationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B000000000000000000CF /* Sources/FermoApp/FermoNavigationViews.swift */; };
+		7A0B000000000000000000D0 /* Sources/FermoApp/SystemExtensionActivationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B000000000000000000D1 /* Sources/FermoApp/SystemExtensionActivationController.swift */; };
+		7A0B000000000000000000D2 /* Sources/FermoApp/FermoViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B000000000000000000D3 /* Sources/FermoApp/FermoViewModel.swift */; };
 		7A0B00000000000000000041 /* FermoFilterExtension/FermoFilterDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B00000000000000000020 /* FermoFilterExtension/FermoFilterDataProvider.swift */; };
 		7A0B00000000000000000042 /* FermoFilterExtension/main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B00000000000000000021 /* FermoFilterExtension/main.swift */; };
 		7A0B00000000000000000043 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7A0B00000000000000000024 /* NetworkExtension.framework */; };
@@ -20,6 +30,10 @@
 		7A0B0000000000000000004A /* FermoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0B00000000000000000091 /* FermoCore */; };
 		7A0B0000000000000000004B /* FermoSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0B00000000000000000092 /* FermoSystem */; };
 		7A0B0000000000000000004C /* Xcode/Fermo/Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7A0B00000000000000000017 /* Xcode/Fermo/Assets.xcassets */; };
+		7A0B000000000000000000A0 /* FermoAppGuardExtension/main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A0B000000000000000000B0 /* FermoAppGuardExtension/main.swift */; };
+		7A0B000000000000000000A2 /* FermoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0B00000000000000000091 /* FermoCore */; };
+		7A0B000000000000000000A3 /* FermoSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0B00000000000000000092 /* FermoSystem */; };
+		7A0B000000000000000000A4 /* FermoAppGuardExtension.systemextension in Embed System Extensions */ = {isa = PBXBuildFile; fileRef = 7A0B000000000000000000B4 /* FermoAppGuardExtension.systemextension */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -37,6 +51,13 @@
 			remoteGlobalIDString = 7A0B00000000000000000067;
 			remoteInfo = FermoHelper;
 		};
+		7A0B000000000000000000A1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7A0B00000000000000000099 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7A0B000000000000000000A7;
+			remoteInfo = FermoAppGuardExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -47,6 +68,7 @@
 			dstSubfolderSpec = 1;
 			files = (
 				7A0B00000000000000000047 /* FermoFilterExtension.systemextension in Embed System Extensions */,
+				7A0B000000000000000000A4 /* FermoAppGuardExtension.systemextension in Embed System Extensions */,
 			);
 			name = "Embed System Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -66,6 +88,16 @@
 
 /* Begin PBXFileReference section */
 		7A0B00000000000000000010 /* Sources/FermoApp/FermoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FermoApp/FermoApp.swift; sourceTree = SOURCE_ROOT; };
+		7A0B000000000000000000C1 /* Sources/FermoApp/FermoComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FermoApp/FermoComponents.swift; sourceTree = SOURCE_ROOT; };
+		7A0B000000000000000000C3 /* Sources/FermoApp/FermoSystemHealthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FermoApp/FermoSystemHealthView.swift; sourceTree = SOURCE_ROOT; };
+		7A0B000000000000000000C5 /* Sources/FermoApp/FermoEvidenceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FermoApp/FermoEvidenceView.swift; sourceTree = SOURCE_ROOT; };
+		7A0B000000000000000000C7 /* Sources/FermoApp/FermoPreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FermoApp/FermoPreferencesView.swift; sourceTree = SOURCE_ROOT; };
+		7A0B000000000000000000C9 /* Sources/FermoApp/FermoRoomsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FermoApp/FermoRoomsView.swift; sourceTree = SOURCE_ROOT; };
+		7A0B000000000000000000CB /* Sources/FermoApp/FermoStartContractView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FermoApp/FermoStartContractView.swift; sourceTree = SOURCE_ROOT; };
+		7A0B000000000000000000CD /* Sources/FermoApp/FermoSessionViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FermoApp/FermoSessionViews.swift; sourceTree = SOURCE_ROOT; };
+		7A0B000000000000000000CF /* Sources/FermoApp/FermoNavigationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FermoApp/FermoNavigationViews.swift; sourceTree = SOURCE_ROOT; };
+		7A0B000000000000000000D1 /* Sources/FermoApp/SystemExtensionActivationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FermoApp/SystemExtensionActivationController.swift; sourceTree = SOURCE_ROOT; };
+		7A0B000000000000000000D3 /* Sources/FermoApp/FermoViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sources/FermoApp/FermoViewModel.swift; sourceTree = SOURCE_ROOT; };
 		7A0B00000000000000000011 /* Xcode/Fermo/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Xcode/Fermo/Info.plist; sourceTree = SOURCE_ROOT; };
 		7A0B00000000000000000012 /* Xcode/Fermo/Fermo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Xcode/Fermo/Fermo.entitlements; sourceTree = SOURCE_ROOT; };
 		7A0B00000000000000000013 /* Xcode/Configs/DevelopmentTeam.xcconfig.example */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Xcode/Configs/DevelopmentTeam.xcconfig.example; sourceTree = SOURCE_ROOT; };
@@ -81,6 +113,10 @@
 		7A0B00000000000000000030 /* Fermo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fermo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A0B00000000000000000031 /* FermoFilterExtension.systemextension */ = {isa = PBXFileReference; explicitFileType = "wrapper.system-extension"; includeInIndex = 0; path = com.toolary.fermo.filter.systemextension; sourceTree = BUILT_PRODUCTS_DIR; };
 		7A0B00000000000000000032 /* FermoHelper.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FermoHelper.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7A0B000000000000000000B0 /* FermoAppGuardExtension/main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FermoAppGuardExtension/main.swift; sourceTree = SOURCE_ROOT; };
+		7A0B000000000000000000B1 /* FermoAppGuardExtension/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = FermoAppGuardExtension/Info.plist; sourceTree = SOURCE_ROOT; };
+		7A0B000000000000000000B2 /* FermoAppGuardExtension/FermoAppGuardExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = FermoAppGuardExtension/FermoAppGuardExtension.entitlements; sourceTree = SOURCE_ROOT; };
+		7A0B000000000000000000B4 /* FermoAppGuardExtension.systemextension */ = {isa = PBXFileReference; explicitFileType = "wrapper.system-extension"; includeInIndex = 0; path = com.toolary.fermo.appguard.systemextension; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -111,6 +147,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7A0B000000000000000000A6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A0B000000000000000000A3 /* FermoSystem in Frameworks */,
+				7A0B000000000000000000A2 /* FermoCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -121,6 +166,7 @@
 				7A0B0000000000000000000A /* Package Helper Source */,
 				7A0B00000000000000000003 /* Xcode */,
 				7A0B00000000000000000006 /* FermoFilterExtension */,
+				7A0B000000000000000000A8 /* FermoAppGuardExtension */,
 				7A0B00000000000000000008 /* Frameworks */,
 				7A0B00000000000000000002 /* Products */,
 			);
@@ -131,6 +177,7 @@
 			children = (
 				7A0B00000000000000000030 /* Fermo.app */,
 				7A0B00000000000000000031 /* FermoFilterExtension.systemextension */,
+				7A0B000000000000000000B4 /* FermoAppGuardExtension.systemextension */,
 				7A0B00000000000000000032 /* FermoHelper.app */,
 			);
 			name = Products;
@@ -188,6 +235,16 @@
 			isa = PBXGroup;
 			children = (
 				7A0B00000000000000000010 /* Sources/FermoApp/FermoApp.swift */,
+				7A0B000000000000000000C1 /* Sources/FermoApp/FermoComponents.swift */,
+				7A0B000000000000000000C3 /* Sources/FermoApp/FermoSystemHealthView.swift */,
+				7A0B000000000000000000C5 /* Sources/FermoApp/FermoEvidenceView.swift */,
+				7A0B000000000000000000C7 /* Sources/FermoApp/FermoPreferencesView.swift */,
+				7A0B000000000000000000C9 /* Sources/FermoApp/FermoRoomsView.swift */,
+				7A0B000000000000000000CB /* Sources/FermoApp/FermoStartContractView.swift */,
+				7A0B000000000000000000CD /* Sources/FermoApp/FermoSessionViews.swift */,
+				7A0B000000000000000000CF /* Sources/FermoApp/FermoNavigationViews.swift */,
+				7A0B000000000000000000D1 /* Sources/FermoApp/SystemExtensionActivationController.swift */,
+				7A0B000000000000000000D3 /* Sources/FermoApp/FermoViewModel.swift */,
 			);
 			name = "Package App Source";
 			sourceTree = "<group>";
@@ -208,6 +265,16 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		7A0B000000000000000000A8 /* FermoAppGuardExtension */ = {
+			isa = PBXGroup;
+			children = (
+				7A0B000000000000000000B0 /* FermoAppGuardExtension/main.swift */,
+				7A0B000000000000000000B1 /* FermoAppGuardExtension/Info.plist */,
+				7A0B000000000000000000B2 /* FermoAppGuardExtension/FermoAppGuardExtension.entitlements */,
+			);
+			path = FermoAppGuardExtension;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -225,6 +292,7 @@
 			);
 			dependencies = (
 				7A0B00000000000000000063 /* PBXTargetDependency */,
+				7A0B000000000000000000B3 /* PBXTargetDependency */,
 				7A0B00000000000000000066 /* PBXTargetDependency */,
 			);
 			name = Fermo;
@@ -275,6 +343,26 @@
 			productReference = 7A0B00000000000000000032 /* FermoHelper.app */;
 			productType = "com.apple.product-type.application";
 		};
+		7A0B000000000000000000A7 /* FermoAppGuardExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7A0B000000000000000000AB /* Build configuration list for PBXNativeTarget "FermoAppGuardExtension" */;
+			buildPhases = (
+				7A0B000000000000000000A5 /* Sources */,
+				7A0B000000000000000000A6 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FermoAppGuardExtension;
+			packageProductDependencies = (
+				7A0B00000000000000000091 /* FermoCore */,
+				7A0B00000000000000000092 /* FermoSystem */,
+			);
+			productName = FermoAppGuardExtension;
+			productReference = 7A0B000000000000000000B4 /* FermoAppGuardExtension.systemextension */;
+			productType = "com.apple.product-type.system-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -292,6 +380,9 @@
 						CreatedOnToolsVersion = 26.2;
 					};
 					7A0B00000000000000000067 = {
+						CreatedOnToolsVersion = 26.2;
+					};
+					7A0B000000000000000000A7 = {
 						CreatedOnToolsVersion = 26.2;
 					};
 				};
@@ -314,6 +405,7 @@
 			targets = (
 				7A0B00000000000000000060 /* Fermo */,
 				7A0B00000000000000000061 /* FermoFilterExtension */,
+				7A0B000000000000000000A7 /* FermoAppGuardExtension */,
 				7A0B00000000000000000067 /* FermoHelper */,
 			);
 		};
@@ -336,6 +428,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				7A0B00000000000000000040 /* Sources/FermoApp/FermoApp.swift in Sources */,
+				7A0B000000000000000000C0 /* Sources/FermoApp/FermoComponents.swift in Sources */,
+				7A0B000000000000000000C2 /* Sources/FermoApp/FermoSystemHealthView.swift in Sources */,
+				7A0B000000000000000000C4 /* Sources/FermoApp/FermoEvidenceView.swift in Sources */,
+				7A0B000000000000000000C6 /* Sources/FermoApp/FermoPreferencesView.swift in Sources */,
+				7A0B000000000000000000C8 /* Sources/FermoApp/FermoRoomsView.swift in Sources */,
+				7A0B000000000000000000CA /* Sources/FermoApp/FermoStartContractView.swift in Sources */,
+				7A0B000000000000000000CC /* Sources/FermoApp/FermoSessionViews.swift in Sources */,
+				7A0B000000000000000000CE /* Sources/FermoApp/FermoNavigationViews.swift in Sources */,
+				7A0B000000000000000000D0 /* Sources/FermoApp/SystemExtensionActivationController.swift in Sources */,
+				7A0B000000000000000000D2 /* Sources/FermoApp/FermoViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -356,6 +458,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7A0B000000000000000000A5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7A0B000000000000000000A0 /* FermoAppGuardExtension/main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -368,6 +478,11 @@
 			isa = PBXTargetDependency;
 			target = 7A0B00000000000000000067 /* FermoHelper */;
 			targetProxy = 7A0B00000000000000000064 /* PBXContainerItemProxy */;
+		};
+		7A0B000000000000000000B3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7A0B000000000000000000A7 /* FermoAppGuardExtension */;
+			targetProxy = 7A0B000000000000000000A1 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -524,6 +639,66 @@
 			};
 			name = Release;
 		};
+		7A0B000000000000000000A9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FermoAppGuardExtension/FermoAppGuardExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = MP3AWS77U3;
+				ENABLE_HARDENED_RUNTIME = YES;
+				FERMO_APP_GROUP_IDENTIFIER = MP3AWS77U3.com.toolary.fermo;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FermoAppGuardExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lEndpointSecurity",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.toolary.fermo.appguard;
+				PRODUCT_MODULE_NAME = FermoAppGuardExtension;
+				PRODUCT_NAME = "$(PRODUCT_BUNDLE_IDENTIFIER)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		7A0B000000000000000000AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FermoAppGuardExtension/FermoAppGuardExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 3;
+				DEVELOPMENT_TEAM = MP3AWS77U3;
+				ENABLE_HARDENED_RUNTIME = YES;
+				FERMO_APP_GROUP_IDENTIFIER = MP3AWS77U3.com.toolary.fermo;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = FermoAppGuardExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lEndpointSecurity",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.toolary.fermo.appguard;
+				PRODUCT_MODULE_NAME = FermoAppGuardExtension;
+				PRODUCT_NAME = "$(PRODUCT_BUNDLE_IDENTIFIER)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 		7A0B00000000000000000084 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -664,6 +839,15 @@
 			buildConfigurations = (
 				7A0B00000000000000000086 /* Debug */,
 				7A0B00000000000000000087 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7A0B000000000000000000AB /* Build configuration list for PBXNativeTarget "FermoAppGuardExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7A0B000000000000000000A9 /* Debug */,
+				7A0B000000000000000000AA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

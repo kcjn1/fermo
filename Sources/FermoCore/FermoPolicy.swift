@@ -21,19 +21,26 @@ public struct FermoPolicy: Codable, Equatable, Sendable {
     }
 
     public func shouldBlock(host: String, at date: Date = Date()) -> Bool {
-        let sessions = activeSessions(at: date)
-        let focusRoomContracts = sessions.compactMap(\.contract).filter(\.isFocusRoom)
+        if activeBlocklists(at: date).contains(where: { blocklist in
+            blocklist.domainRules.contains { $0.matches(host: host) }
+        }) {
+            return true
+        }
+
+        let focusRoomContracts = activeFocusRoomContracts(at: date)
         if !focusRoomContracts.isEmpty {
-            return !focusRoomContracts.contains { contract in
+            return !focusRoomContracts.allSatisfy { contract in
                 contract.allowedDomains.contains { $0.matches(host: host) }
             }
         }
 
-        return activeBlocklists(at: date).contains { blocklist in
-            blocklist.domainRules.contains { $0.matches(host: host) }
-        }
+        return false
     }
 
+    /// Bundle identifiers blocked by an active blocklist, in their authored (display) casing.
+    /// Matching against these is case-insensitive (see `shouldInterruptApp`) because bundle
+    /// identifiers are conventionally case-insensitive, but the stored casing is preserved so
+    /// diagnostics surface exactly what the user entered.
     public func blockedAppBundleIdentifiers(at date: Date = Date()) -> Set<String> {
         Set(activeBlocklists(at: date).flatMap { blocklist in
             blocklist.appRules.map(\.bundleIdentifier)
@@ -41,18 +48,28 @@ public struct FermoPolicy: Codable, Equatable, Sendable {
     }
 
     public func shouldInterruptApp(bundleIdentifier: String, at date: Date = Date()) -> Bool {
-        let contracts = activeSessions(at: date).compactMap(\.contract).filter(\.isFocusRoom)
-        if !contracts.isEmpty {
+        let normalized = bundleIdentifier.lowercased()
+        if blockedAppBundleIdentifiers(at: date).contains(where: { $0.lowercased() == normalized }) {
+            return true
+        }
+
+        if !activeFocusRoomContracts(at: date).isEmpty {
             return !isAppAllowedInFocusRoom(bundleIdentifier: bundleIdentifier, at: date)
         }
-        return blockedAppBundleIdentifiers(at: date).contains(bundleIdentifier)
+
+        return false
     }
 
     public func isAppAllowedInFocusRoom(bundleIdentifier: String, at date: Date = Date()) -> Bool {
-        let contracts = activeSessions(at: date).compactMap(\.contract).filter(\.isFocusRoom)
+        let contracts = activeFocusRoomContracts(at: date)
         guard !contracts.isEmpty else { return true }
-        return contracts.contains { contract in
-            contract.allowedApps.contains { $0.bundleIdentifier == bundleIdentifier }
+        let normalized = bundleIdentifier.lowercased()
+        return contracts.allSatisfy { contract in
+            contract.allowedApps.contains { $0.normalizedBundleIdentifier == normalized }
         }
+    }
+
+    private func activeFocusRoomContracts(at date: Date) -> [FocusContract] {
+        activeSessions(at: date).compactMap(\.contract).filter(\.isFocusRoom)
     }
 }

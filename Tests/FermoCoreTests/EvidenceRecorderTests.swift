@@ -74,3 +74,59 @@ func evidenceRecorderRequiresBreakGlassForActiveLockedSession() throws {
     #expect(broken.evidenceLog.first?.outcome == .breakGlass)
     #expect(broken.evidenceLog.first?.artifacts.contains(.breakGlassReason("Production support interruption.")) == true)
 }
+
+@Test
+func evidenceRecorderRejectsBreakGlassForSoftActiveSession() throws {
+    let now = Date(timeIntervalSince1970: 92_000)
+    let policy = try FocusContractDraft(
+        taskTitle: "Soft work",
+        intendedOutcome: "Soft sessions have a normal early exit, not break glass.",
+        mode: .blocklist,
+        rigor: .soft,
+        duration: 1_800,
+        blockedDomains: [try DomainRule("reddit.com")]
+    ).activePolicy(startingAt: now)
+    let session = try #require(policy.sessions.first)
+
+    #expect(throws: EvidenceRecordError.breakGlassNotApplicable) {
+        try EvidenceRecorder().record(
+            EvidenceDraft(outcome: .breakGlass, breakGlassReason: "Should not be allowed on soft."),
+            for: session.id,
+            in: policy,
+            at: now.addingTimeInterval(60)
+        )
+    }
+}
+
+@Test
+func evidenceRecorderRejectsBreakGlassAfterLockedSessionEndsButAcceptsNormalOutcome() throws {
+    let now = Date(timeIntervalSince1970: 93_000)
+    let policy = try FocusContractDraft(
+        taskTitle: "Locked work",
+        intendedOutcome: "Finish before the timer ends.",
+        mode: .blocklist,
+        rigor: .locked,
+        duration: 1_800,
+        blockedDomains: [try DomainRule("reddit.com")]
+    ).activePolicy(startingAt: now)
+    let session = try #require(policy.sessions.first)
+    let afterEnd = now.addingTimeInterval(2_000) // past endsAt; session is no longer active
+
+    #expect(throws: EvidenceRecordError.breakGlassNotApplicable) {
+        try EvidenceRecorder().record(
+            EvidenceDraft(outcome: .breakGlass, breakGlassReason: "Glass was never broken; timer already ended."),
+            for: session.id,
+            in: policy,
+            at: afterEnd
+        )
+    }
+
+    let completed = try EvidenceRecorder().record(
+        EvidenceDraft(outcome: .completed, note: "Shipped before the timer ended."),
+        for: session.id,
+        in: policy,
+        at: afterEnd
+    )
+    #expect(completed.sessions.first?.state == .completed)
+    #expect(completed.evidenceLog.first?.outcome == .completed)
+}

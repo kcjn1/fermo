@@ -44,17 +44,19 @@ Non-sandboxed containing app:
 
 The app-blocking POC passes for a Developer ID-style, non-sandboxed containing app. It does not pass from the sandboxed containing app.
 
-This means Fermo has two viable product paths:
+Toolary beta no longer treats user-space interruption as sufficient app enforcement. The current decision is:
 
-- keep the main app non-sandboxed for the first direct-distribution beta and continue validating process interruption with more real apps;
-- or keep the main app sandboxed and move app enforcement into a stronger helper, Endpoint Security path, or another privileged/system component.
+- keep user-space interruption as startup cleanup/fallback for apps that were already running when a session starts;
+- enforce new app launch and relaunch denial through `FermoAppGuardExtension`, the embedded Endpoint Security System Extension;
+- share app allow/deny semantics through `FermoSystem.AppEnforcementPolicy` so fallback interruption and Endpoint Security evaluate Blocklist and Focus Room rules consistently;
+- block Toolary beta until Apple grants `com.apple.developer.endpoint-security.client`, provisioning profiles are regenerated, macOS approval passes, and the signed runtime matrix validates app launch denial.
 
 Do not claim impossible-to-bypass enforcement. This spike proves practical process interruption under normal user behavior for a non-sandboxed app, not tamper-proof enforcement.
 
 ## Follow-Up Validation
 
-- Test apps that relaunch themselves.
-- Test apps with unsaved state or quit confirmation prompts.
-- Test apps launched before session start and during Locked Mode.
-- Test Slack, Discord, browsers, and terminal apps by bundle identifier.
-- Decide whether direct-distribution beta accepts non-sandboxed app interruption or requires Endpoint Security/helper work before beta.
+- Use `docs/macos-endpoint-security-signing.md` for the App Guard signing, approval, and launch-deny checklist.
+- Use `docs/toolary-beta-runtime-matrix.md` for the final signed Toolary beta browser, lifecycle, app-launch, product-slice, update, and uninstall rows.
+- Test apps launched before session start as fallback cleanup and apps launched/relaunched during active sessions as Endpoint Security denial.
+- Test apps with unsaved state or quit confirmation prompts as degraded fallback behavior, not as the beta app-enforcement gate.
+- Keep Finder, Dock, System Settings, Fermo, and FermoHelper on the always-allowed recovery path.

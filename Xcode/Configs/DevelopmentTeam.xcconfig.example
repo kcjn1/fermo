@@ -6,4 +6,7 @@ DEVELOPMENT_TEAM =
 PRODUCT_BUNDLE_IDENTIFIER = com.toolary.fermo
 FERMO_FILTER_BUNDLE_IDENTIFIER = com.toolary.fermo.filter
 FERMO_HELPER_BUNDLE_IDENTIFIER = com.toolary.fermo.helper
-FERMO_APP_GROUP_IDENTIFIER = group.com.toolary.fermo
+// On macOS the App Group MUST be prefixed with your Apple Developer Team ID
+// (format: <TEAM_ID>.com.toolary.fermo, see docs/macos-network-extension-signing.md).
+// The committed project uses MP3AWS77U3.com.toolary.fermo; replace the prefix with your team's.
+FERMO_APP_GROUP_IDENTIFIER = <TEAM_ID>.com.toolary.fermo

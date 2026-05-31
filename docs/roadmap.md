@@ -23,14 +23,16 @@
 - Add permission/onboarding states.
 - Keep UI native and compact.
 
-Current status as of 2026-05-23:
+Current status as of 2026-05-30:
 
 - First native shell is in place with Today, Start Contract, Rooms, Evidence, System Health, and Preferences.
 - Start Contract now builds a real `FocusContractDraft` from local presets and starts an active `FermoCore` policy instead of only triggering spike sample data.
 - Evidence capture records completed/partial/not-done/break-glass outcomes into the local policy evidence log and renders a Markdown preview.
 - Focus Room app interruption now evaluates the active policy allowlist and excludes Fermo plus critical macOS shell apps.
 - Active Session now has a dedicated timer/control surface with rule details, runtime health, Soft stop, Locked/Emergency break-glass, proof-due state, and `LockedModeGuard`-backed rule edit locking.
-- Remaining UI gaps: editable room/blocklist builder, schedule editor, Markdown file export affordance, richer preferences, and manual lifecycle/browser-matrix validation.
+- Rooms/blocklists, custom Focus Room allowlists, one-off start-later sessions, recurring weekly schedules, main-app/helper due-session restore, Markdown evidence export, richer Preferences, System Health, diagnostics copy, and release guardrails are locally implemented.
+- The app target has been split into a small app shell, a view model file, reusable components, screen files, navigation views, and a dedicated system-extension activation adapter.
+- Remaining before beta: Apple Endpoint Security entitlement, signed/notarized `/Applications/Fermo.app`, macOS approvals, and the full signed lifecycle/browser/runtime matrix.
 
 ## Milestone 3: Contract Hardening
 
@@ -39,12 +41,13 @@ Current status as of 2026-05-23:
 - Add clear copy for what Soft, Locked, and Emergency do and do not guarantee.
 - Add break-glass flow for Emergency sessions that records the reason in the evidence log.
 
-Current status as of 2026-05-23:
+Current status as of 2026-05-30:
 
 - Normal early stop and rule-weakening mutations are routed through `LockedModeGuard`.
 - Soft contracts can stop early with a local not-done reason.
 - Locked/Emergency contracts expose break-glass recording instead of a normal stop path.
 - Rooms visibly lock weakening edits while a protected contract is active.
+- App launch enforcement policy is shared between the Endpoint Security App Guard extension and the user-space interruption fallback.
 
 ## Milestone 4: Claude Design Pass
 
