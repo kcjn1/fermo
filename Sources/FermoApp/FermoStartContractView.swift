@@ -9,6 +9,7 @@ struct FermoStartContractView: View {
     @State private var mode = FocusMode.focusRoom
     @State private var rigor = ContractRigor.locked
     @State private var duration = 90.0
+    @State private var requiredProof = RequiredProof.markdown
     @State private var ruleState = ContractRuleEditorState()
     @State private var timing = ContractStartTiming.now
     @State private var startsAt = Date().addingTimeInterval(3_600)
@@ -40,6 +41,15 @@ struct FermoStartContractView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    Picker("Proof requirement", selection: $requiredProof) {
+                        ForEach(RequiredProof.allCases, id: \.self) { value in
+                            Text(value.displayName).tag(value)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    Text(requiredProof.detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Picker("Start", selection: $timing) {
                         ForEach(ContractStartTiming.allCases, id: \.self) { value in
                             Text(value.label).tag(value)
@@ -67,6 +77,22 @@ struct FermoStartContractView: View {
                         .buttonStyle(.borderedProminent)
                         .tint(FermoTheme.accent)
                         .disabled(model.isUpdatingWebsiteFilter)
+
+                        Button {
+                            model.savePreset(name: task, mode: mode, rigor: rigor, ruleDraft: ruleState.draft)
+                        } label: {
+                            Label("Save as preset", systemImage: "bookmark")
+                        }
+                        .buttonStyle(.bordered)
+
+                        Button {
+                            model.saveDraft(currentSavedDraft())
+                        } label: {
+                            Label("Save draft", systemImage: "tray.and.arrow.down")
+                        }
+                        .buttonStyle(.bordered)
+
+                        Spacer()
 
                         Button {
                             Task { await model.clearDiagnostics() }
@@ -111,7 +137,7 @@ struct FermoStartContractView: View {
 
             FermoSchedulePanel(model: model)
         }
-        .onAppear(perform: applyPreferredDefaults)
+        .onAppear(perform: applyInitialState)
         .onChange(of: selectedPresetID) {
             applySelectedPreset()
         }
@@ -119,6 +145,37 @@ struct FermoStartContractView: View {
 
     private var selectedPreset: FocusPreset? {
         model.presets.first { $0.id == selectedPresetID } ?? model.presets.first
+    }
+
+    private func applyInitialState() {
+        // A saved draft is the operator's intended next contract; resume it without touching
+        // selectedPresetID so the preset onChange does not clobber the restored rules.
+        if let draft = model.savedDraft {
+            task = draft.taskTitle
+            outcome = draft.intendedOutcome
+            mode = draft.mode
+            rigor = draft.rigor
+            requiredProof = draft.requiredProof
+            duration = Double(draft.durationMinutes)
+            ruleState = ContractRuleEditorState(savedDraft: draft)
+            return
+        }
+        applyPreferredDefaults()
+    }
+
+    private func currentSavedDraft() -> SavedContractDraft {
+        SavedContractDraft(
+            taskTitle: task,
+            intendedOutcome: outcome,
+            mode: mode,
+            rigor: rigor,
+            requiredProof: requiredProof,
+            durationMinutes: Int(duration),
+            blockedDomainPatterns: ruleState.blockedDomainLines,
+            allowedDomainPatterns: ruleState.allowedDomainLines,
+            blockedApps: ruleState.blockedAppLines.map { AppRule(bundleIdentifier: $0, displayName: $0) },
+            allowedApps: ruleState.allowedAppLines.map { AppRule(bundleIdentifier: $0, displayName: $0) }
+        )
     }
 
     private func applyPreferredDefaults() {
@@ -145,6 +202,7 @@ struct FermoStartContractView: View {
     }
 
     private func startContract() {
+        let hadDraft = model.savedDraft != nil
         Task {
             switch timing {
             case .now:
@@ -154,7 +212,8 @@ struct FermoStartContractView: View {
                     mode: mode,
                     rigor: rigor,
                     duration: duration * 60,
-                    ruleDraft: ruleState.draft
+                    ruleDraft: ruleState.draft,
+                    requiredProof: requiredProof
                 )
             case .later:
                 await model.scheduleContract(
@@ -164,9 +223,12 @@ struct FermoStartContractView: View {
                     rigor: rigor,
                     duration: duration * 60,
                     startsAt: startsAt,
-                    ruleDraft: ruleState.draft
+                    ruleDraft: ruleState.draft,
+                    requiredProof: requiredProof
                 )
             }
+            // Starting consumes the saved "next contract" draft.
+            if hadDraft { model.clearSavedDraft() }
         }
     }
 }
@@ -196,6 +258,13 @@ struct ContractRuleEditorState: Equatable {
         self.blockedAppsText = preset.blockedApps.map(\.bundleIdentifier).joined(separator: "\n")
         self.allowedDomainsText = preset.allowedDomains.map(\.rawPattern).joined(separator: "\n")
         self.allowedAppsText = preset.allowedApps.map(\.bundleIdentifier).joined(separator: "\n")
+    }
+
+    init(savedDraft: SavedContractDraft) {
+        self.blockedDomainsText = savedDraft.blockedDomainPatterns.joined(separator: "\n")
+        self.blockedAppsText = savedDraft.blockedApps.map(\.bundleIdentifier).joined(separator: "\n")
+        self.allowedDomainsText = savedDraft.allowedDomainPatterns.joined(separator: "\n")
+        self.allowedAppsText = savedDraft.allowedApps.map(\.bundleIdentifier).joined(separator: "\n")
     }
 
     var draft: FocusContractRuleDraft {
@@ -296,6 +365,9 @@ struct FermoSchedulePanel: View {
     @State private var startMinute = 0
     @State private var duration = 90.0
     @State private var selectedBlocklistID: UUID?
+    @State private var scheduleMode = FocusMode.blocklist
+    @State private var allowedDomainsText = ""
+    @State private var allowedAppsText = ""
     @State private var lockedMode = true
     @State private var isEnabled = true
     @State private var editingScheduleID: UUID?
@@ -303,70 +375,81 @@ struct FermoSchedulePanel: View {
     var body: some View {
         FermoPanel("Schedules", subtitle: "\(model.schedules.count) saved", symbol: "calendar.badge.clock") {
             VStack(alignment: .leading, spacing: 14) {
-                if model.policy.blocklists.isEmpty {
-                    FermoStatusStrip(
-                        label: "No rooms yet",
-                        reason: "Create a room before saving a recurring schedule.",
-                        tone: .warning
-                    )
-                } else {
-                    VStack(alignment: .leading, spacing: 12) {
-                        TextField("Schedule name", text: $name)
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 8)], spacing: 8) {
-                            ForEach(Weekday.allCases, id: \.self) { weekday in
-                                Button {
-                                    toggle(weekday)
-                                } label: {
-                                    Text(weekday.shortName)
-                                        .frame(maxWidth: .infinity)
-                                }
-                                .buttonStyle(.bordered)
-                                .tint(selectedWeekdays.contains(weekday) ? FermoTheme.accent : .secondary)
+                VStack(alignment: .leading, spacing: 12) {
+                    TextField("Schedule name", text: $name)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 72), spacing: 8)], spacing: 8) {
+                        ForEach(Weekday.allCases, id: \.self) { weekday in
+                            Button {
+                                toggle(weekday)
+                            } label: {
+                                Text(weekday.shortName)
+                                    .frame(maxWidth: .infinity)
                             }
+                            .buttonStyle(.bordered)
+                            .tint(selectedWeekdays.contains(weekday) ? FermoTheme.accent : .secondary)
                         }
+                    }
 
-                        HStack {
+                    Picker("Mode", selection: $scheduleMode) {
+                        Text("Blocklist").tag(FocusMode.blocklist)
+                        Text("Focus Room").tag(FocusMode.focusRoom)
+                    }
+                    .pickerStyle(.segmented)
+
+                    if scheduleMode == .blocklist {
+                        if model.policy.blocklists.isEmpty {
+                            FermoStatusStrip(
+                                label: "No rooms yet",
+                                reason: "Create a room first, or switch this schedule to Focus Room mode.",
+                                tone: .warning
+                            )
+                        } else {
                             Picker("Room", selection: selectedBlocklistBinding) {
                                 ForEach(model.policy.blocklists) { blocklist in
                                     Text(blocklist.name).tag(blocklist.id)
                                 }
                             }
                             .frame(maxWidth: 280)
-
-                            Stepper("Start \(String(format: "%02d:%02d", startHour, startMinute))", value: $startHour, in: 0...23)
-                            Stepper("Minute \(String(format: "%02d", startMinute))", value: $startMinute, in: 0...55, step: 5)
                         }
+                    } else {
+                        scheduleRuleEditor(title: "Allowed websites", symbol: "checkmark.circle", text: $allowedDomainsText)
+                        scheduleRuleEditor(title: "Allowed apps (bundle IDs)", symbol: "checkmark.seal", text: $allowedAppsText)
+                    }
 
-                        VStack(alignment: .leading) {
-                            Text("Duration: \(Int(duration)) min")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Slider(value: $duration, in: 25...180, step: 5)
+                    HStack {
+                        Stepper("Start \(String(format: "%02d:%02d", startHour, startMinute))", value: $startHour, in: 0...23)
+                        Stepper("Minute \(String(format: "%02d", startMinute))", value: $startMinute, in: 0...55, step: 5)
+                    }
+
+                    VStack(alignment: .leading) {
+                        Text("Duration: \(Int(duration)) min")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Slider(value: $duration, in: 25...180, step: 5)
+                    }
+
+                    HStack {
+                        Toggle("Locked schedule", isOn: $lockedMode)
+                        Toggle("Enabled", isOn: $isEnabled)
+                    }
+
+                    HStack {
+                        Button {
+                            save()
+                        } label: {
+                            Label(editingScheduleID == nil ? "Save Schedule" : "Update Schedule", systemImage: editingScheduleID == nil ? "calendar.badge.plus" : "checkmark")
                         }
+                        .buttonStyle(.borderedProminent)
+                        .tint(FermoTheme.accent)
+                        .disabled(!canSaveSchedule)
 
-                        HStack {
-                            Toggle("Locked schedule", isOn: $lockedMode)
-                            Toggle("Enabled", isOn: $isEnabled)
-                        }
-
-                        HStack {
+                        if editingScheduleID != nil {
                             Button {
-                                save()
+                                resetEditor()
                             } label: {
-                                Label(editingScheduleID == nil ? "Save Schedule" : "Update Schedule", systemImage: editingScheduleID == nil ? "calendar.badge.plus" : "checkmark")
+                                Label("Cancel", systemImage: "xmark")
                             }
-                            .buttonStyle(.borderedProminent)
-                            .tint(FermoTheme.accent)
-                            .disabled(selectedWeekdays.isEmpty || selectedBlocklistID == nil)
-
-                            if editingScheduleID != nil {
-                                Button {
-                                    resetEditor()
-                                } label: {
-                                    Label("Cancel", systemImage: "xmark")
-                                }
-                                .buttonStyle(.bordered)
-                            }
+                            .buttonStyle(.bordered)
                         }
                     }
                 }
@@ -414,24 +497,76 @@ struct FermoSchedulePanel: View {
         }
     }
 
-    private func save() {
-        guard let selectedBlocklistID else {
-            return
-        }
+    private var allowedDomainLines: [String] { Self.lines(from: allowedDomainsText) }
+    private var allowedAppLines: [String] { Self.lines(from: allowedAppsText) }
 
+    private static func lines(from text: String) -> [String] {
+        text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private var canSaveSchedule: Bool {
+        guard !selectedWeekdays.isEmpty else { return false }
+        switch scheduleMode {
+        case .blocklist: return selectedBlocklistID != nil && !model.policy.blocklists.isEmpty
+        case .focusRoom: return !allowedDomainLines.isEmpty || !allowedAppLines.isEmpty
+        }
+    }
+
+    @ViewBuilder
+    private func scheduleRuleEditor(title: String, symbol: String, text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(title, systemImage: symbol)
+                .font(.caption.weight(.semibold))
+            TextEditor(text: text)
+                .font(.system(.caption, design: .monospaced))
+                .frame(minHeight: 60)
+                .scrollContentBackground(.hidden)
+                .padding(6)
+                .background(FermoTheme.panelRaised)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(FermoTheme.line))
+        }
+    }
+
+    private func save() {
         do {
-            let schedule = try WeeklyScheduleEditorDraft(
-                id: editingScheduleID,
-                name: name,
-                weekdays: selectedWeekdays,
-                startHour: startHour,
-                startMinute: startMinute,
-                durationMinutes: Int(duration),
-                blocklistIDs: [selectedBlocklistID],
-                lockedMode: lockedMode,
-                isEnabled: isEnabled
-            ).schedule()
-            model.saveSchedule(schedule)
+            let draft: WeeklyScheduleEditorDraft
+            switch scheduleMode {
+            case .blocklist:
+                guard let selectedBlocklistID else { return }
+                draft = WeeklyScheduleEditorDraft(
+                    id: editingScheduleID,
+                    name: name,
+                    weekdays: selectedWeekdays,
+                    startHour: startHour,
+                    startMinute: startMinute,
+                    durationMinutes: Int(duration),
+                    blocklistIDs: [selectedBlocklistID],
+                    lockedMode: lockedMode,
+                    isEnabled: isEnabled,
+                    mode: .blocklist
+                )
+            case .focusRoom:
+                let allowedDomains = try allowedDomainLines.map(DomainRule.init)
+                let allowedApps = allowedAppLines.map { AppRule(bundleIdentifier: $0, displayName: $0) }
+                draft = WeeklyScheduleEditorDraft(
+                    id: editingScheduleID,
+                    name: name,
+                    weekdays: selectedWeekdays,
+                    startHour: startHour,
+                    startMinute: startMinute,
+                    durationMinutes: Int(duration),
+                    blocklistIDs: [],
+                    lockedMode: lockedMode,
+                    isEnabled: isEnabled,
+                    mode: .focusRoom,
+                    allowedDomains: allowedDomains,
+                    allowedApps: allowedApps
+                )
+            }
+            model.saveSchedule(try draft.schedule())
             resetEditor(keepingSelectedRoom: true)
         } catch {
             model.systemMessage = "Schedule could not be saved: \(String(describing: error))"
@@ -446,6 +581,9 @@ struct FermoSchedulePanel: View {
         startMinute = schedule.startMinute
         duration = schedule.duration / 60
         selectedBlocklistID = schedule.blocklistIDs.first ?? model.policy.blocklists.first?.id
+        scheduleMode = schedule.mode
+        allowedDomainsText = schedule.allowedDomains.map(\.rawPattern).joined(separator: "\n")
+        allowedAppsText = schedule.allowedApps.map(\.bundleIdentifier).joined(separator: "\n")
         lockedMode = schedule.lockedMode
         isEnabled = schedule.isEnabled
     }
@@ -459,11 +597,18 @@ struct FermoSchedulePanel: View {
         startMinute = 0
         duration = 90
         selectedBlocklistID = keepingSelectedRoom ? currentRoom : model.policy.blocklists.first?.id
+        scheduleMode = .blocklist
+        allowedDomainsText = ""
+        allowedAppsText = ""
         lockedMode = true
         isEnabled = true
     }
 
     private func blocklistName(for schedule: WeeklySchedule) -> String {
+        if schedule.mode == .focusRoom {
+            let count = schedule.allowedDomains.count + schedule.allowedApps.count
+            return "Focus Room · \(count) allowed"
+        }
         let names = schedule.blocklistIDs.compactMap { id in
             model.policy.blocklists.first { $0.id == id }?.name
         }

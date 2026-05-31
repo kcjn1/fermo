@@ -3,6 +3,7 @@ import SwiftUI
 
 struct FermoRoomsView: View {
     @ObservedObject var model: FermoViewModel
+    var onStartContract: () -> Void = {}
     @State private var editingBlocklistID: UUID?
     @State private var editorState = BlocklistEditorState()
     @State private var isEditorVisible = false
@@ -58,6 +59,20 @@ struct FermoRoomsView: View {
                         }
                     }
                 }
+            }
+
+            if model.policy.blocklists.isEmpty && !isEditorVisible {
+                FermoEmptyStateCard(
+                    symbol: "square.grid.2x2",
+                    tone: .muted,
+                    title: "No rooms yet",
+                    message: "A room is a saved set of allowed websites and apps, with a default duration and rigor. Start from a preset — Writing, Coding, Admin, Deep Planning — or build one yourself.",
+                    illustrationLabel: "Room list · empty",
+                    primaryTitle: "Add your first room",
+                    primaryAction: { beginNewBlocklist() },
+                    secondaryTitle: "Use a preset",
+                    secondaryAction: onStartContract
+                )
             }
 
             ForEach(model.policy.blocklists) { blocklist in

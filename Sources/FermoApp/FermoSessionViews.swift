@@ -19,6 +19,17 @@ struct FermoTodayView: View {
                 action: statusAction
             )
 
+            if model.currentContractSession == nil {
+                if let draft = model.savedDraft {
+                    NextContractCard(
+                        draft: draft,
+                        onEdit: onStartContract,
+                        onDiscard: { model.clearSavedDraft() }
+                    )
+                }
+                QuickStartPanel(model: model, onNewPreset: onStartContract)
+            }
+
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
                 FermoPanel("Current Contract", symbol: "target") {
                     if let session = model.currentContractSession {
@@ -134,6 +145,94 @@ struct FermoTodayView: View {
     }
 }
 
+struct QuickStartPanel: View {
+    @ObservedObject var model: FermoViewModel
+    let onNewPreset: () -> Void
+
+    var body: some View {
+        FermoPanel("Quick Start", subtitle: "Launch a saved preset in one action.", symbol: "bolt") {
+            VStack(alignment: .leading, spacing: 12) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 168), spacing: 10)], spacing: 10) {
+                    ForEach(model.presets) { preset in
+                        Button {
+                            Task { await model.startPreset(preset) }
+                        } label: {
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack(spacing: 8) {
+                                    Image(systemName: preset.mode.symbol)
+                                        .foregroundStyle(FermoTheme.accent)
+                                    Text(preset.name)
+                                        .font(.subheadline.weight(.semibold))
+                                        .lineLimit(1)
+                                    Spacer(minLength: 0)
+                                }
+                                HStack(spacing: 6) {
+                                    FermoStatusBadge(label: "\(model.preferences.defaultDurationMinutes) min", tone: .muted)
+                                    FermoStatusBadge(label: preset.suggestedRigor.displayName, tone: preset.suggestedRigor == .soft ? .muted : .ok)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
+                            .background(FermoTheme.panel)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(FermoTheme.line))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(model.isUpdatingWebsiteFilter)
+                    }
+                }
+                Button {
+                    onNewPreset()
+                } label: {
+                    Label("New preset", systemImage: "plus")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+    }
+}
+
+struct NextContractCard: View {
+    let draft: SavedContractDraft
+    let onEdit: () -> Void
+    let onDiscard: () -> Void
+
+    var body: some View {
+        FermoPanel("Next Contract · saved draft", symbol: "doc.text") {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(draft.taskTitle.isEmpty ? "Untitled contract" : draft.taskTitle)
+                    .font(.title3.weight(.semibold))
+                if !draft.intendedOutcome.isEmpty {
+                    Text(draft.intendedOutcome)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                HStack(spacing: 6) {
+                    FermoStatusBadge(label: draft.mode.displayName, tone: .info)
+                    FermoStatusBadge(label: "\(draft.durationMinutes) min", tone: .muted)
+                    FermoStatusBadge(label: draft.rigor.displayName, tone: draft.rigor == .soft ? .muted : .ok)
+                    FermoStatusBadge(label: "Proof: \(draft.requiredProof.displayName)", tone: .muted)
+                }
+                HStack {
+                    Button {
+                        onEdit()
+                    } label: {
+                        Label("Resume draft", systemImage: "square.and.pencil")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(FermoTheme.accent)
+                    Button {
+                        onDiscard()
+                    } label: {
+                        Label("Discard", systemImage: "trash")
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        }
+    }
+}
+
 struct ActiveContractSummary: View {
     let session: FocusSession
 
@@ -159,6 +258,7 @@ struct ActiveContractSummary: View {
 
 struct FermoActiveSessionView: View {
     @ObservedObject var model: FermoViewModel
+    var onStartContract: () -> Void = {}
 
     var body: some View {
         TimelineView(.periodic(from: Date(), by: 1)) { timeline in
@@ -169,10 +269,17 @@ struct FermoActiveSessionView: View {
                 if let session = model.currentContractSession {
                     activeContent(session: session, now: timeline.date)
                 } else {
-                    FermoPanel("No Active Contract", symbol: "timer") {
-                        Text("Start a contract to see its timer, rule boundary, system health, and proof controls here.")
-                            .foregroundStyle(.secondary)
-                    }
+                    FermoEmptyStateCard(
+                        symbol: "play.fill",
+                        tone: .muted,
+                        title: "No active session",
+                        message: "You haven't started a contract yet. When you do, this screen turns into a protected workspace with what is being enforced and how much time remains.",
+                        illustrationLabel: "Active session · empty",
+                        primaryTitle: "Start a contract",
+                        primaryAction: onStartContract,
+                        secondaryTitle: "Browse presets",
+                        secondaryAction: onStartContract
+                    )
                 }
             }
         }
@@ -319,32 +426,148 @@ private struct FermoSoftStopPanel: View {
 struct FermoBreakGlassPanel: View {
     @ObservedObject var model: FermoViewModel
     let session: FocusSession
-    @State private var reason = ""
+    @State private var showSheet = false
 
     var body: some View {
         FermoPanel("Break Glass", subtitle: "Early exit for Locked/Emergency records a reason in evidence.", symbol: "exclamationmark.triangle") {
             VStack(alignment: .leading, spacing: 10) {
-                Text("\(session.rigor.displayName) mode has no normal stop path while the timer is active.")
+                Text("\(session.rigor.displayName) mode has no normal stop path while the timer is active. Breaking glass ends the session early and writes the reason to the evidence ledger.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                TextField("Break-glass reason", text: $reason, axis: .vertical)
-                    .lineLimit(2...4)
-                Button {
-                    Task {
-                        await model.recordEvidence(
-                            EvidenceDraft(
-                                outcome: .breakGlass,
-                                note: "Ended early from the active session screen.",
-                                breakGlassReason: reason
-                            )
-                        )
-                    }
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(role: .destructive) {
+                    showSheet = true
                 } label: {
-                    Label("Break Glass and Record", systemImage: "exclamationmark.triangle")
+                    Label("Break Glass…", systemImage: "exclamationmark.triangle")
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(FermoTheme.danger)
             }
+        }
+        .sheet(isPresented: $showSheet) {
+            BreakGlassSheet(model: model, session: session, isPresented: $showSheet)
+        }
+    }
+}
+
+/// Deliberate-friction modal: a session summary, a reason with a character minimum, and a
+/// 2-second hold-to-confirm so breaking glass is never a single careless click.
+private struct BreakGlassSheet: View {
+    @ObservedObject var model: FermoViewModel
+    let session: FocusSession
+    @Binding var isPresented: Bool
+
+    @State private var reason = ""
+    @State private var isHolding = false
+    private let minimumReasonLength = 23
+
+    private var trimmedCount: Int {
+        reason.trimmingCharacters(in: .whitespacesAndNewlines).count
+    }
+    private var canConfirm: Bool { trimmedCount >= minimumReasonLength }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(FermoTheme.danger)
+                Text("End \(session.rigor.displayName.lowercased()) session early")
+                    .font(.headline)
+                Spacer(minLength: 0)
+            }
+
+            TimelineView(.periodic(from: Date(), by: 1)) { timeline in
+                VStack(alignment: .leading, spacing: 6) {
+                    summaryRow("Session", session.contract?.taskTitle ?? session.title)
+                    summaryRow("Time used", "\(elapsed(now: timeline.date)) of \(total)")
+                    summaryRow("Outcome", "broke-glass")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(FermoTheme.panel)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Why are you ending early?")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                TextEditor(text: $reason)
+                    .font(.callout)
+                    .frame(minHeight: 84)
+                    .scrollContentBackground(.hidden)
+                    .padding(6)
+                    .background(FermoTheme.panelRaised)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(FermoTheme.line))
+                Text("\(minimumReasonLength) characters minimum · \(trimmedCount) written")
+                    .font(.caption2)
+                    .foregroundStyle(canConfirm ? FermoTheme.accent : .secondary)
+            }
+
+            HStack {
+                Button("Cancel") { isPresented = false }
+                    .buttonStyle(.bordered)
+                Spacer()
+                holdToConfirmButton
+            }
+        }
+        .padding(20)
+        .frame(width: 440)
+        .background(FermoTheme.background)
+    }
+
+    private var holdToConfirmButton: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(canConfirm ? FermoTheme.danger.opacity(isHolding ? 0.45 : 0.85) : FermoTheme.danger.opacity(0.25))
+            Label(isHolding ? "Hold…" : "Hold to confirm (2s)", systemImage: "exclamationmark.triangle")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+        }
+        .fixedSize()
+        .opacity(canConfirm ? 1 : 0.6)
+        .onLongPressGesture(minimumDuration: 2.0, pressing: { pressing in
+            isHolding = canConfirm && pressing
+        }, perform: {
+            confirm()
+        })
+        .help(canConfirm ? "Hold for 2 seconds to break glass." : "Write at least \(minimumReasonLength) characters first.")
+    }
+
+    private func summaryRow(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            Spacer()
+            Text(value).font(.caption.monospaced())
+        }
+    }
+
+    private var total: String { formatClock(session.duration) }
+
+    private func elapsed(now: Date) -> String {
+        formatClock(max(0, min(session.duration, now.timeIntervalSince(session.startsAt))))
+    }
+
+    private func formatClock(_ value: TimeInterval) -> String {
+        let total = max(0, Int(value.rounded()))
+        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
+        return h > 0 ? String(format: "%02d:%02d:%02d", h, m, s) : String(format: "%02d:%02d", m, s)
+    }
+
+    private func confirm() {
+        guard canConfirm else { return }
+        Task {
+            await model.recordEvidence(
+                EvidenceDraft(
+                    outcome: .breakGlass,
+                    note: "Ended early from the active session screen.",
+                    breakGlassReason: reason
+                )
+            )
+            isPresented = false
         }
     }
 }

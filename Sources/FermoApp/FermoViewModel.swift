@@ -16,6 +16,8 @@ final class FermoViewModel: ObservableObject {
     @Published var latestAppInterruptionReport: AppInterruptionReport?
     @Published var systemMessage: String?
     @Published var presets: [FocusPreset] = []
+    @Published var customPresets: [FocusPreset] = []
+    @Published var savedDraft: SavedContractDraft?
     @Published var schedules: [WeeklySchedule] = []
     @Published var preferences: FermoPreferences = FermoPreferences()
 
@@ -57,7 +59,10 @@ final class FermoViewModel: ObservableObject {
         self.policy = initialSnapshot.policy
         self.schedules = initialSnapshot.schedules
         self.preferences = initialSnapshot.preferences
-        self.presets = (try? FocusPresetLibrary.defaults()) ?? []
+        self.customPresets = initialSnapshot.customPresets
+        self.savedDraft = initialSnapshot.savedDraft
+        let builtInPresets = (try? FocusPresetLibrary.defaults()) ?? []
+        self.presets = builtInPresets + initialSnapshot.customPresets
         self.helperStatus = helperRegistrar.status()
 
         if !self.policy.activeSessions(at: Date()).isEmpty {
@@ -107,6 +112,28 @@ final class FermoViewModel: ObservableObject {
             .filter { $0.state == .active && now >= $0.endsAt }
             .sorted { $0.endsAt > $1.endsAt }
             .first
+    }
+
+    enum MenuBarState: Equatable {
+        case idle
+        case protected
+        case needsApproval
+        case degraded
+    }
+
+    /// Drives the four state-specific menu-bar popover layouts.
+    var menuBarState: MenuBarState {
+        if currentContractSession != nil {
+            let websiteHealthy = websiteBlockingStatus == .active || websiteBlockingStatus == .ready
+            let interruptionStrained = latestAppInterruptionReport?.requiresStrongerHandling == true
+            return (!websiteHealthy || interruptionStrained) ? .degraded : .protected
+        }
+        return onboardingChecklist.overallState == .actionNeeded ? .needsApproval : .idle
+    }
+
+    /// Most recent recorded session result, for the menu-bar "last session" summary.
+    var lastEvidenceEntry: EvidenceLogEntry? {
+        policy.evidenceLog.last
     }
 
     var isRuleWeakeningLocked: Bool {
@@ -378,7 +405,8 @@ final class FermoViewModel: ObservableObject {
         mode: FocusMode,
         rigor: ContractRigor,
         duration: TimeInterval,
-        ruleDraft: FocusContractRuleDraft
+        ruleDraft: FocusContractRuleDraft,
+        requiredProof: RequiredProof = .markdown
     ) async {
         do {
             let rules = try ruleDraft.resolved()
@@ -389,7 +417,8 @@ final class FermoViewModel: ObservableObject {
                     mode: mode,
                     rigor: rigor,
                     duration: duration,
-                    rules: rules
+                    rules: rules,
+                    requiredProof: requiredProof
                 )
             )
         } catch {
@@ -405,7 +434,8 @@ final class FermoViewModel: ObservableObject {
         rigor: ContractRigor,
         duration: TimeInterval,
         startsAt: Date,
-        ruleDraft: FocusContractRuleDraft
+        ruleDraft: FocusContractRuleDraft,
+        requiredProof: RequiredProof = .markdown
     ) async {
         isUpdatingWebsiteFilter = true
         defer { isUpdatingWebsiteFilter = false }
@@ -418,7 +448,8 @@ final class FermoViewModel: ObservableObject {
                 mode: mode,
                 rigor: rigor,
                 duration: duration,
-                rules: rules
+                rules: rules,
+                requiredProof: requiredProof
             )
             .scheduledPolicy(startingAt: startsAt)
 
@@ -803,6 +834,153 @@ final class FermoViewModel: ObservableObject {
         }
     }
 
+    /// Compact one-line summary of a preset for Quick Start rows: "90 min · Locked · Focus Room".
+    func presetSummary(_ preset: FocusPreset) -> String {
+        "\(preferences.defaultDurationMinutes) min · \(preset.suggestedRigor.displayName) · \(preset.mode.displayName)"
+    }
+
+    /// One-action launch of a saved preset (Quick Start), using the default duration.
+    func startPreset(_ preset: FocusPreset) async {
+        await startContract(
+            taskTitle: preset.name,
+            intendedOutcome: "Focus session from the \(preset.name) preset.",
+            mode: preset.mode,
+            rigor: preset.suggestedRigor,
+            duration: TimeInterval(preferences.defaultDurationMinutes * 60),
+            ruleDraft: FocusContractRuleDraft(preset: preset)
+        )
+    }
+
+    /// Persist the current Start Contract rules as a reusable custom preset.
+    func savePreset(name: String, mode: FocusMode, rigor: ContractRigor, ruleDraft: FocusContractRuleDraft) {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else {
+            systemMessage = "Preset name is required."
+            return
+        }
+        do {
+            let rules = try ruleDraft.resolved()
+            let preset = FocusPreset(
+                id: "custom-\(UUID().uuidString)",
+                name: trimmedName,
+                mode: mode,
+                suggestedRigor: rigor,
+                blockedDomains: rules.blockedDomains,
+                blockedApps: rules.blockedApps,
+                allowedDomains: rules.allowedDomains,
+                allowedApps: rules.allowedApps
+            )
+            customPresets.append(preset)
+            refreshPresets()
+            try persistSnapshot(policy: policy)
+            systemMessage = "Preset \(trimmedName) saved."
+        } catch {
+            logger.error("Preset could not be saved: \(Self.describe(error), privacy: .public)")
+            systemMessage = "Preset could not be saved: \(Self.describe(error))"
+        }
+    }
+
+    func deleteCustomPreset(id: String) {
+        customPresets.removeAll { $0.id == id }
+        refreshPresets()
+        do {
+            try persistSnapshot(policy: policy)
+            systemMessage = "Preset removed."
+        } catch {
+            systemMessage = "Preset could not be removed: \(Self.describe(error))"
+        }
+    }
+
+    private func refreshPresets() {
+        presets = ((try? FocusPresetLibrary.defaults()) ?? []) + customPresets
+    }
+
+    /// Persist a resumable Start Contract draft for the Today "next contract" card.
+    func saveDraft(_ draft: SavedContractDraft) {
+        savedDraft = draft
+        do {
+            try persistSnapshot(policy: policy)
+            systemMessage = "Draft saved for later."
+        } catch {
+            logger.error("Draft could not be saved: \(Self.describe(error), privacy: .public)")
+            systemMessage = "Draft could not be saved: \(Self.describe(error))"
+        }
+    }
+
+    func clearSavedDraft() {
+        savedDraft = nil
+        try? persistSnapshot(policy: policy)
+    }
+
+    /// Live Markdown render of an in-progress proof draft (lenient: no validation), for the
+    /// Proof Capture preview pane. Mirrors how `EvidenceRecorder` builds the saved entry.
+    func proofPreviewMarkdown(for session: FocusSession, draft: EvidenceDraft) -> String {
+        let contract = session.contract
+        let entry = EvidenceLogEntry(
+            sessionID: session.id,
+            createdAt: Date(),
+            taskTitle: contract?.taskTitle ?? session.title,
+            intendedOutcome: contract?.intendedOutcome ?? "",
+            outcome: draft.outcome,
+            mode: contract?.mode ?? .blocklist,
+            rigor: session.rigor,
+            startedAt: session.startsAt,
+            endedAt: session.endsAt,
+            blockedDomains: blockedDomains(for: session),
+            blockedApps: blockedApps(for: session),
+            allowedDomains: allowedDomains(for: session),
+            allowedApps: allowedApps(for: session),
+            artifacts: Self.previewArtifacts(from: draft),
+            nextStep: draft.nextStep.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : draft.nextStep
+        )
+        return EvidenceMarkdownRenderer().render(entry)
+    }
+
+    private static func previewArtifacts(from draft: EvidenceDraft) -> [EvidenceArtifact] {
+        func nonEmpty(_ value: String) -> String? {
+            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        var artifacts: [EvidenceArtifact] = []
+        if let value = nonEmpty(draft.note) { artifacts.append(.note(value)) }
+        if let value = nonEmpty(draft.filePath) { artifacts.append(.filePath(value)) }
+        if let value = nonEmpty(draft.commitHash) { artifacts.append(.commitHash(value)) }
+        if let value = nonEmpty(draft.screenshotPath) { artifacts.append(.screenshotPath(value)) }
+        if let value = nonEmpty(draft.notDoneReason) { artifacts.append(.notDoneReason(value)) }
+        if let value = nonEmpty(draft.breakGlassReason) { artifacts.append(.breakGlassReason(value)) }
+        return artifacts
+    }
+
+    /// Reveal the evidence export folder in Finder, creating it if needed.
+    func revealEvidenceFolder() {
+        let url = evidenceExportDirectoryURL
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    func copyLatestEvidenceMarkdown() {
+        guard let markdown = latestEvidenceMarkdown else {
+            systemMessage = "No evidence entry to copy."
+            return
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(markdown, forType: .string)
+        systemMessage = "Latest evidence copied as Markdown."
+    }
+
+    func copyEvidenceLedgerMarkdown() {
+        guard !policy.evidenceLog.isEmpty else {
+            systemMessage = "No evidence ledger to copy."
+            return
+        }
+        let markdown = policy.evidenceLog
+            .map { EvidenceMarkdownRenderer().render($0) }
+            .joined(separator: "\n---\n\n")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(markdown, forType: .string)
+        systemMessage = "Evidence ledger copied as Markdown."
+    }
+
     @discardableResult
     private func interruptProtectedAppsOnce() -> AppInterruptionReport {
         let report = appInterruptionController.interruptPolicyViolatingAppsReport(
@@ -870,7 +1048,9 @@ final class FermoViewModel: ObservableObject {
             FermoSnapshot(
                 policy: policy,
                 schedules: schedules,
-                preferences: preferences
+                preferences: preferences,
+                customPresets: customPresets,
+                savedDraft: savedDraft
             )
         )
     }

@@ -57,6 +57,7 @@ Current status as of 2026-05-30:
 - Generate the app icon concept and prepare the later `AppIcon.appiconset` handoff.
 - Treat the design pass as direction and production UI input, not as a beta-readiness signal.
 - 2026-05-23: Claude Design bundle accepted and stored in `docs/design/claude-design-2026-05-23/`; implementation plan captured in `docs/design-implementation-plan.md`.
+- 2026-05-31: Native UI completion backlog implemented in SwiftUI — menu-bar Quick Start and four state-driven popovers, break-glass hold-to-confirm modal, Evidence filters/stats/reveal/copy, Proof Capture live preview and outcome cards, Start Contract proof-requirement and Save-as-preset/Save-draft, first-run empty-state cards, and Focus Room recurring schedules. Remaining design work is visual refinement on real signed-build runtime data. See `docs/design-implementation-plan.md`.
 
 Pre-design status as of 2026-05-17:
 

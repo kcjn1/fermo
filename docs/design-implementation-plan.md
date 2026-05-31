@@ -76,24 +76,30 @@ This design pass is not a beta-readiness signal. It is the input for the first n
 
 ## Native UI Completion Backlog (post-spike design pass)
 
-These accepted-design affordances are intentionally deferred until after signed-runtime
-validation. The dogfood UI is functionally complete without them; they are design-completion
-work, not blockers. Tracked here so "Done" above is not read as "every design element shipped":
+Implemented 2026-05-31 as native SwiftUI against the accepted design. All build under
+`swift build` + `xcodebuild`; behaviour is honest about unverified signed-runtime checks.
 
-- **Today / menu bar Quick Start**: launch a saved preset in one action (the design's 4-up
-  preset cards / `⌘1–⌘4` menu-bar rows). Today and the menu bar currently route to Start Contract.
-- **Menu bar state layouts**: the four state-driven popovers (Idle / Protected countdown /
-  Needs-approval / Degraded). The menu bar currently shows a flat diagnostics list.
-- **Break Glass modal**: hold-to-confirm + reason character-minimum + time-used summary. The
-  core `EvidenceRecorder` now rejects break-glass on non-active/soft sessions, but the
-  deliberate-friction modal UI is still an inline panel.
-- **Evidence toolbar**: outcome/rigor/date filter pills, session-summary stats, and a
-  Reveal-in-Finder / Copy-as-Markdown footer.
-- **Proof Capture**: live Markdown draft preview pane and structured outcome cards.
-- **Start Contract**: proof-requirement chooser plus Save-as-preset / Save-draft (needs a
-  persisted presets/drafts store and a `requiredProof` field on `FocusContract`).
-- **First-run empty states**: dedicated StateCards for no-rooms / no-session / empty-evidence.
-- **Focus Room schedules**: `WeeklySchedule` / `WeeklyScheduleEditorDraft` now carry
-  `mode` + `allowedDomains` + `allowedApps`, and occurrences materialize a Focus Room
-  `FocusContract` (covered by tests). The schedule editor UI still only creates Blocklist
-  schedules; exposing a mode picker + allowlist fields is part of this design pass.
+- **Today / menu bar Quick Start** — done: `QuickStartPanel` (4-up preset cards) on Today and
+  preset rows with `⌘1–⌘4` in the menu bar both call `FermoViewModel.startPreset`.
+- **Menu bar state layouts** — done: `FermoMenuView` branches on `FermoViewModel.menuBarState`
+  into Idle (quick start + last session), Protected (live countdown + progress + scope chips),
+  Needs-approval (permission alert + affected checks), and Degraded (partial-protection banner +
+  recheck). Diagnostics moved into a collapsible Developer section.
+- **Break Glass modal** — done: `BreakGlassSheet` is a modal with a session/time-used summary, a
+  23-character reason minimum, and a 2-second hold-to-confirm. Core `EvidenceRecorder` also
+  rejects break-glass on non-active/soft sessions.
+- **Evidence toolbar** — done: outcome + rigor filter pills, a session-summary stats line, and a
+  footer with Reveal-in-Finder and Copy-as-Markdown (latest / full ledger) plus file exports.
+- **Proof Capture** — done: structured outcome cards and a live Markdown draft preview pane
+  (`FermoViewModel.proofPreviewMarkdown`); break-glass is handled only by its dedicated modal.
+- **Start Contract** — done: proof-requirement chooser, Save-as-preset, Save-draft, and a Today
+  "Next contract · saved draft" resume card, backed by `FocusContract.requiredProof`, persisted
+  `customPresets`, and a `SavedContractDraft` store.
+- **First-run empty states** — done: `FermoEmptyStateCard` for no-rooms, no-session, and
+  empty-evidence, with CTAs that route to Start Contract.
+- **Focus Room schedules** — done: the schedule editor exposes a mode picker and allowlist fields;
+  `WeeklySchedule` carries `mode` + `allowedDomains` + `allowedApps` and materializes a Focus Room
+  `FocusContract` (covered by tests).
+
+Remaining for this surface is visual refinement on real signed-build runtime data, not new
+functionality.

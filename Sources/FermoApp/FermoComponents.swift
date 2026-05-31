@@ -155,6 +155,152 @@ struct FermoStatusStrip: View {
     }
 }
 
+/// First-run / empty surface card: icon chip, title, honest body copy, optional dashed
+/// illustration stripe, and one or two CTAs. Matches the accepted design's StateCard.
+struct FermoEmptyStateCard: View {
+    let symbol: String
+    var tone: FermoStatusBadge.Tone = .muted
+    let title: String
+    let message: String
+    var illustrationLabel: String?
+    var primaryTitle: String?
+    var primaryAction: (() -> Void)?
+    var secondaryTitle: String?
+    var secondaryAction: (() -> Void)?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+                Image(systemName: symbol)
+                    .font(.system(size: 14))
+                    .foregroundStyle(tone.color)
+                    .frame(width: 30, height: 30)
+                    .background(tone.color.opacity(0.14))
+                    .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).stroke(tone.color.opacity(0.35)))
+                Text(title).font(.subheadline.weight(.semibold))
+                Spacer(minLength: 0)
+            }
+            if let illustrationLabel {
+                Text(illustrationLabel.uppercased())
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .strokeBorder(FermoTheme.line, style: StrokeStyle(lineWidth: 1, dash: [4]))
+                    )
+            }
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if primaryTitle != nil || secondaryTitle != nil {
+                HStack(spacing: 8) {
+                    if let primaryTitle, let primaryAction {
+                        Button(primaryTitle, action: primaryAction)
+                            .buttonStyle(.borderedProminent)
+                            .tint(FermoTheme.accent)
+                    }
+                    if let secondaryTitle, let secondaryAction {
+                        Button(secondaryTitle, action: secondaryAction)
+                            .buttonStyle(.bordered)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(FermoTheme.panelRaised)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(FermoTheme.line))
+    }
+}
+
+/// A tappable card used for mutually-exclusive choices (e.g. proof outcome).
+struct FermoSelectableCard: View {
+    let symbol: String
+    let title: String
+    let detail: String
+    let isSelected: Bool
+    var tone: FermoStatusBadge.Tone = .ok
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 6) {
+                Image(systemName: symbol)
+                    .foregroundStyle(isSelected ? tone.color : .secondary)
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .background(isSelected ? tone.color.opacity(0.14) : FermoTheme.panel)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(isSelected ? tone.color.opacity(0.6) : FermoTheme.line)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// A capsule filter toggle used in the Evidence toolbar.
+struct FermoFilterPill: View {
+    let label: String
+    let isActive: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.caption.weight(.medium))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .foregroundStyle(isActive ? FermoTheme.accent : Color.secondary)
+                .background(isActive ? FermoTheme.accent.opacity(0.18) : FermoTheme.panel)
+                .clipShape(Capsule())
+                .overlay(Capsule().stroke(isActive ? FermoTheme.accent.opacity(0.5) : FermoTheme.line))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// A monospaced live Markdown preview card with a filename header.
+struct FermoMarkdownPreview: View {
+    let filename: String
+    let markdown: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "doc.text").foregroundStyle(.secondary)
+                Text(filename)
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            ScrollView {
+                Text(markdown)
+                    .font(.system(.caption, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+            .frame(minHeight: 160, maxHeight: 300)
+        }
+        .padding(12)
+        .background(FermoTheme.panel)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(FermoTheme.line))
+    }
+}
+
 struct FermoMetric: View {
     let label: String
     let value: String

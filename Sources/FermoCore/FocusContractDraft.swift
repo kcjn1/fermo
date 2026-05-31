@@ -105,6 +105,7 @@ public struct FocusContractDraft: Equatable, Sendable {
     public var intendedOutcome: String
     public var mode: FocusMode
     public var rigor: ContractRigor
+    public var requiredProof: RequiredProof
     public var duration: TimeInterval
     public var blockedDomains: [DomainRule]
     public var blockedApps: [AppRule]
@@ -117,6 +118,7 @@ public struct FocusContractDraft: Equatable, Sendable {
         mode: FocusMode,
         rigor: ContractRigor,
         duration: TimeInterval,
+        requiredProof: RequiredProof = .markdown,
         blockedDomains: [DomainRule] = [],
         blockedApps: [AppRule] = [],
         allowedDomains: [DomainRule] = [],
@@ -126,6 +128,7 @@ public struct FocusContractDraft: Equatable, Sendable {
         self.intendedOutcome = intendedOutcome
         self.mode = mode
         self.rigor = rigor
+        self.requiredProof = requiredProof
         self.duration = duration
         self.blockedDomains = blockedDomains
         self.blockedApps = blockedApps
@@ -139,7 +142,8 @@ public struct FocusContractDraft: Equatable, Sendable {
         intendedOutcome: String,
         duration: TimeInterval,
         mode: FocusMode? = nil,
-        rigor: ContractRigor? = nil
+        rigor: ContractRigor? = nil,
+        requiredProof: RequiredProof = .markdown
     ) {
         self.init(
             taskTitle: taskTitle,
@@ -147,6 +151,7 @@ public struct FocusContractDraft: Equatable, Sendable {
             mode: mode ?? preset.mode,
             rigor: rigor ?? preset.suggestedRigor,
             duration: duration,
+            requiredProof: requiredProof,
             blockedDomains: preset.blockedDomains,
             blockedApps: preset.blockedApps,
             allowedDomains: preset.allowedDomains,
@@ -160,7 +165,8 @@ public struct FocusContractDraft: Equatable, Sendable {
         mode: FocusMode,
         rigor: ContractRigor,
         duration: TimeInterval,
-        rules: FocusContractRuleSet
+        rules: FocusContractRuleSet,
+        requiredProof: RequiredProof = .markdown
     ) {
         self.init(
             taskTitle: taskTitle,
@@ -168,6 +174,7 @@ public struct FocusContractDraft: Equatable, Sendable {
             mode: mode,
             rigor: rigor,
             duration: duration,
+            requiredProof: requiredProof,
             blockedDomains: rules.blockedDomains,
             blockedApps: rules.blockedApps,
             allowedDomains: rules.allowedDomains,
@@ -214,6 +221,7 @@ public struct FocusContractDraft: Equatable, Sendable {
                 intendedOutcome: trimmedOutcome,
                 mode: mode,
                 rigor: rigor,
+                requiredProof: requiredProof,
                 allowedDomains: allowedDomains,
                 allowedApps: allowedApps
             ),

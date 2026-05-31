@@ -53,6 +53,10 @@ public struct FermoSnapshot: Codable, Equatable, Sendable {
     public var schedules: [WeeklySchedule]
     public var evidenceLog: [EvidenceLogEntry]
     public var preferences: FermoPreferences
+    /// Operator-saved presets, in addition to the built-in `FocusPresetLibrary.defaults()`.
+    public var customPresets: [FocusPreset]
+    /// A single resumable Start Contract draft, if the operator saved one.
+    public var savedDraft: SavedContractDraft?
 
     public init(
         blocklists: [Blocklist] = [],
@@ -74,13 +78,17 @@ public struct FermoSnapshot: Codable, Equatable, Sendable {
         sessions: [FocusSession] = [],
         schedules: [WeeklySchedule] = [],
         evidenceLog: [EvidenceLogEntry] = [],
-        preferences: FermoPreferences
+        preferences: FermoPreferences,
+        customPresets: [FocusPreset] = [],
+        savedDraft: SavedContractDraft? = nil
     ) {
         self.blocklists = blocklists
         self.sessions = sessions
         self.schedules = schedules
         self.evidenceLog = evidenceLog
         self.preferences = preferences
+        self.customPresets = customPresets
+        self.savedDraft = savedDraft
     }
 
     public init(policy: FermoPolicy, schedules: [WeeklySchedule] = []) {
@@ -90,14 +98,18 @@ public struct FermoSnapshot: Codable, Equatable, Sendable {
     public init(
         policy: FermoPolicy,
         schedules: [WeeklySchedule] = [],
-        preferences: FermoPreferences
+        preferences: FermoPreferences,
+        customPresets: [FocusPreset] = [],
+        savedDraft: SavedContractDraft? = nil
     ) {
         self.init(
             blocklists: policy.blocklists,
             sessions: policy.sessions,
             schedules: schedules,
             evidenceLog: policy.evidenceLog,
-            preferences: preferences
+            preferences: preferences,
+            customPresets: customPresets,
+            savedDraft: savedDraft
         )
     }
 
@@ -115,6 +127,8 @@ public struct FermoSnapshot: Codable, Equatable, Sendable {
         case schedules
         case evidenceLog
         case preferences
+        case customPresets
+        case savedDraft
     }
 
     public init(from decoder: any Decoder) throws {
@@ -124,6 +138,8 @@ public struct FermoSnapshot: Codable, Equatable, Sendable {
         self.schedules = try container.decodeIfPresent([WeeklySchedule].self, forKey: .schedules) ?? []
         self.evidenceLog = try container.decodeIfPresent([EvidenceLogEntry].self, forKey: .evidenceLog) ?? []
         self.preferences = try container.decodeIfPresent(FermoPreferences.self, forKey: .preferences) ?? FermoPreferences()
+        self.customPresets = try container.decodeIfPresent([FocusPreset].self, forKey: .customPresets) ?? []
+        self.savedDraft = try container.decodeIfPresent(SavedContractDraft.self, forKey: .savedDraft)
     }
 }
 
