@@ -27,20 +27,21 @@ This design pass is not a beta-readiness signal. It is the input for the first n
 
 4. **Contract Flow**
    - Done for the first dogfood pass: Start Contract builds a real `FocusContractDraft`, persists the active policy when possible, activates the filter path, starts app interruption, and asks for helper persistence.
-   - Remaining: stronger validation affordances and a more compact final visual treatment.
+   - Current native flow also supports custom Focus Room allowlists, Blocklist domain/app rules, one-off start-later sessions, and recurring weekly schedules.
+   - Remaining before beta: signed runtime validation of the final `/Applications/Fermo.app` control paths.
 
 5. **Rooms**
-   - Implement Rooms master-detail and blocklist/focus-room editors.
-   - Prevent weakening rules while a Locked/Emergency session is active.
+   - Done for dogfood/dev: Rooms supports create, edit, enable, disable, delete, blocklist/focus-room rules, and persistence.
+   - Locked/Emergency weakening rules are guarded by `LockedModeGuard`.
 
 6. **Active Session and Proof**
    - Done for the first dogfood pass: Active Session has a live timer, rule boundary, runtime health, Soft stop, Locked/Emergency break-glass, and proof-due state.
    - Remaining: visual refinement, denser active-session layout, and manual signed-runtime validation of each control path.
 
 7. **Evidence and Preferences**
-   - Partially done: Evidence shows the real local ledger and latest Markdown preview.
-   - Remaining: explicit Markdown file export path and evidence storage preferences.
-   - Add preferences for defaults, helper/login item, diagnostics, evidence storage.
+   - Done for dogfood/dev: Evidence shows the real local ledger and latest Markdown preview, exports the latest entry and full ledger, avoids overwrites, and uses the configured folder.
+   - Preferences include defaults, helper/login item controls, diagnostics, evidence storage, App Guard approval entry points, and the shared protection checklist.
+   - Remaining before beta: signed runtime validation of evidence export and diagnostics rows.
 
 8. **Icon**
    - Done in the first native pass: the protected-room/contract-seal concept now has a source SVG and `AppIcon.appiconset`.
@@ -58,6 +59,9 @@ This design pass is not a beta-readiness signal. It is the input for the first n
 
 ## Manual Checks Still Blocking Beta
 
+- Apple Endpoint Security entitlement and regenerated profiles;
+- signed/notarized `/Applications/Fermo.app`;
+- Network Extension, Endpoint Security App Guard, and Login Item approvals;
 - sleep/wake restore;
 - reboot/login restore;
 - Wi-Fi change;
@@ -66,7 +70,36 @@ This design pass is not a beta-readiness signal. It is the input for the first n
 
 ## Next Product Slices
 
-- Editable Room/Blocklist builder with guarded mutations.
-- Schedule editor.
-- Markdown evidence export to disk.
-- Preferences for evidence storage and default preset/rigor.
+- Signed Toolary beta runtime matrix on `/Applications/Fermo.app`.
+- Visual refinement after runtime behavior is proven.
+- Release packaging only after `scripts/check-signed-beta-readiness.sh` and the release evidence archive pass.
+
+## Native UI Completion Backlog (post-spike design pass)
+
+Implemented 2026-05-31 as native SwiftUI against the accepted design. All build under
+`swift build` + `xcodebuild`; behaviour is honest about unverified signed-runtime checks.
+
+- **Today / menu bar Quick Start** — done: `QuickStartPanel` (4-up preset cards) on Today and
+  preset rows with `⌘1–⌘4` in the menu bar both call `FermoViewModel.startPreset`.
+- **Menu bar state layouts** — done: `FermoMenuView` branches on `FermoViewModel.menuBarState`
+  into Idle (quick start + last session), Protected (live countdown + progress + scope chips),
+  Needs-approval (permission alert + affected checks), and Degraded (partial-protection banner +
+  recheck). Diagnostics moved into a collapsible Developer section.
+- **Break Glass modal** — done: `BreakGlassSheet` is a modal with a session/time-used summary, a
+  23-character reason minimum, and a 2-second hold-to-confirm. Core `EvidenceRecorder` also
+  rejects break-glass on non-active/soft sessions.
+- **Evidence toolbar** — done: outcome + rigor filter pills, a session-summary stats line, and a
+  footer with Reveal-in-Finder and Copy-as-Markdown (latest / full ledger) plus file exports.
+- **Proof Capture** — done: structured outcome cards and a live Markdown draft preview pane
+  (`FermoViewModel.proofPreviewMarkdown`); break-glass is handled only by its dedicated modal.
+- **Start Contract** — done: proof-requirement chooser, Save-as-preset, Save-draft, and a Today
+  "Next contract · saved draft" resume card, backed by `FocusContract.requiredProof`, persisted
+  `customPresets`, and a `SavedContractDraft` store.
+- **First-run empty states** — done: `FermoEmptyStateCard` for no-rooms, no-session, and
+  empty-evidence, with CTAs that route to Start Contract.
+- **Focus Room schedules** — done: the schedule editor exposes a mode picker and allowlist fields;
+  `WeeklySchedule` carries `mode` + `allowedDomains` + `allowedApps` and materializes a Focus Room
+  `FocusContract` (covered by tests).
+
+Remaining for this surface is visual refinement on real signed-build runtime data, not new
+functionality.

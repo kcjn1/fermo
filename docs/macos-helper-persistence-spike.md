@@ -86,6 +86,7 @@ Run from a signed build installed in `/Applications`:
 - The helper can reload the active session after the main app relaunches.
 - The helper still sees the active session after sleep/wake.
 - After reboot/login, the approved helper starts again and reloads active session state if it has not expired.
+- `FermoSystem.HelperRestorePass` has unit coverage for materializing due weekly sessions, activating due one-off sessions, refreshing content-filter snapshots when active rules change, and clearing snapshots after sessions expire.
 - After the session expires or the spike is stopped, website blocking is cleared.
 - The diagnostic spike can be stopped even while active; a real Locked contract should still require break-glass.
 
@@ -126,7 +127,7 @@ log stream --style compact --predicate 'process == "Fermo" OR process == "FermoH
 - This helper is not a privileged daemon and does not prove tamper-proof enforcement.
 - The helper refreshes the shared rule snapshot; the containing app must enable the Network Extension first with signing, app groups, Network Extension entitlements, and macOS approvals correct.
 - The helper intentionally follows the current non-sandboxed direct-distribution app-blocking path.
-- Sleep/wake and reboot/login restore remain follow-up checks.
+- Sleep/wake and reboot/login restore remain signed runtime checks, even though the helper restore pass is now covered by unit tests.
 - After replacing a system extension build, `systemextensionsctl list` may show the previous build as `terminated waiting to uninstall on reboot`; this is expected until macOS restarts.
 
 ## Common Failure Modes

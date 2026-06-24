@@ -240,17 +240,21 @@ public struct AppInterruptionController: Sendable {
             excluded.formUnion(normalizedBundleIdentifiers([currentBundleIdentifier]))
         }
 
-        let hasActiveFocusRoom = policy.activeSessions(at: date).contains { session in
-            session.contract?.isFocusRoom == true
+        let enforcementPolicy = AppEnforcementPolicy(alwaysAllowedBundleIdentifiers: excluded)
+        let candidates: Set<String>
+        if policy.activeSessions(at: date).contains(where: { $0.contract?.isFocusRoom == true }) {
+            candidates = normalizedBundleIdentifiers(runningBundleIdentifiers)
+        } else {
+            candidates = policy.blockedAppBundleIdentifiers(at: date)
         }
 
-        if !hasActiveFocusRoom {
-            return policy.blockedAppBundleIdentifiers(at: date).subtracting(excluded)
-        }
-
-        return normalizedBundleIdentifiers(runningBundleIdentifiers).filter { bundleIdentifier in
-            !excluded.contains(bundleIdentifier) &&
-            policy.shouldInterruptApp(bundleIdentifier: bundleIdentifier, at: date)
+        return candidates.filter { bundleIdentifier in
+            let decision = enforcementPolicy.decision(
+                for: AppLaunchContext(bundleIdentifier: bundleIdentifier),
+                policy: policy,
+                at: date
+            )
+            return !decision.shouldAllowLaunch
         }
     }
 

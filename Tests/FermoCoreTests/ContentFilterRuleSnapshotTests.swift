@@ -78,6 +78,60 @@ func focusRoomSnapshotBlocksDomainsOutsideAllowedRoom() throws {
 }
 
 @Test
+func focusRoomSnapshotBlocklistOverridesAllowedDomains() throws {
+    let now = Date(timeIntervalSince1970: 52_250)
+    let policy = try FocusContractDraft(
+        taskTitle: "Code",
+        intendedOutcome: "Validate strict filter boundary.",
+        mode: .focusRoom,
+        rigor: .locked,
+        duration: 600,
+        blockedDomains: [try DomainRule("github.com")],
+        allowedDomains: [try DomainRule("github.com")]
+    ).activePolicy(startingAt: now)
+
+    let snapshot = ContentFilterRuleSnapshot(policy: policy, at: now)
+
+    #expect(snapshot.mode == .focusRoom)
+    #expect(snapshot.normalizedBlockedDomains == ["github.com"])
+    #expect(snapshot.normalizedAllowedDomains == ["github.com"])
+    #expect(snapshot.decision(for: "github.com", at: now) == .block)
+}
+
+@Test
+func overlappingFocusRoomSnapshotRequiresEveryRoomToAllowDomain() throws {
+    let now = Date(timeIntervalSince1970: 52_500)
+    let firstRoom = try FocusContractDraft(
+        taskTitle: "Write",
+        intendedOutcome: "Draft finished.",
+        mode: .focusRoom,
+        rigor: .locked,
+        duration: 600,
+        allowedDomains: [try DomainRule("github.com")]
+    ).activePolicy(startingAt: now)
+    let secondRoom = try FocusContractDraft(
+        taskTitle: "Review",
+        intendedOutcome: "Review finished.",
+        mode: .focusRoom,
+        rigor: .locked,
+        duration: 600,
+        allowedDomains: [
+            try DomainRule("github.com"),
+            try DomainRule("developer.apple.com")
+        ]
+    ).activePolicy(startingAt: now)
+    let policy = FermoPolicy(
+        blocklists: firstRoom.blocklists + secondRoom.blocklists,
+        sessions: firstRoom.sessions + secondRoom.sessions
+    )
+
+    let snapshot = ContentFilterRuleSnapshot(policy: policy, at: now)
+
+    #expect(snapshot.decision(for: "github.com", at: now) == .allow)
+    #expect(snapshot.decision(for: "developer.apple.com", at: now) == .block)
+}
+
+@Test
 func contentFilterSnapshotStoreRoundTripsJSON() throws {
     let directory = URL(fileURLWithPath: NSTemporaryDirectory())
         .appendingPathComponent("FermoContentFilterRuleSnapshotTests-\(UUID().uuidString)")

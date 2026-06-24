@@ -4,6 +4,8 @@
 
 Proceed with the repo, model, tests, and dogfood shell now. Do not claim beta readiness until the signed macOS spike also passes the browser matrix and lifecycle checks.
 
+The signed Toolary beta runtime checklist lives in `docs/toolary-beta-runtime-matrix.md`.
+
 ## Spike 1: Website Blocking
 
 Goal: prove Fermo can block selected domains across common browsers.
@@ -25,12 +27,21 @@ Pass condition:
 
 Goal: interrupt selected apps during active sessions.
 
+Updated beta decision:
+
+- Toolary beta now waits for Endpoint Security instead of accepting only the non-sandboxed user-space interruption path.
+- The shared app-launch decision lives in `FermoSystem.AppEnforcementPolicy` so the future Endpoint Security system extension and the existing app-interruption fallback evaluate Blocklist and Focus Room rules identically.
+- `AppInterruptionController` remains useful for cleaning up apps already running when a session starts, but it is not the beta-grade relaunch prevention mechanism.
+
 Implementation path:
 
 - Start with `NSWorkspace.shared.runningApplications`.
 - Match by bundle identifier.
 - Attempt graceful termination first.
 - Record apps that relaunch, resist termination, or need stronger handling.
+- Use the embedded Endpoint Security App Guard system extension after Apple grants `com.apple.developer.endpoint-security.client`.
+- Subscribe to launch authorization events and deny apps that `AppEnforcementPolicy` marks as not allowed.
+- Keep critical macOS shell apps, Fermo, and FermoHelper on the always-allowed list.
 
 Pass condition:
 
@@ -40,13 +51,23 @@ Pass condition:
 Current local status:
 
 - `FermoSystem.AppInterruptionController` detects running apps and records interruption outcomes.
+- `FermoSystem.AppEnforcementPolicy` now provides pure, unit-tested app launch allow/deny decisions for Blocklist and Focus Room sessions.
+- `FermoSystem.AppGuardPolicyStore` loads the persisted shared snapshot and evaluates launch decisions for a system extension client.
+- `FermoSystem.AppGuardRuntimeDiagnostic` reports whether the App Guard policy snapshot exists, is readable, has active sessions, and lists protected app bundle IDs for the copied diagnostics report.
+- `FermoAppGuardExtension` exists as an embedded Xcode System Extension target, builds locally with `-lEndpointSecurity`, and is copied into `Fermo.app/Contents/Library/SystemExtensions` alongside the Network Extension.
+- Endpoint Security auth responses are not cached because Fermo's allow/deny answer changes when the active session or rules change.
+- The native app exposes an App Guard approval request in System Health, Preferences, the menu bar, and diagnostics so the signed runtime pass has a visible Endpoint Security approval path.
+- System Health and Preferences share a `ProtectionOnboardingChecklist` for website-filter approval, App Guard approval, and Login Item readiness.
+- `docs/macos-endpoint-security-signing.md` tracks the App Guard entitlement, signing, approval, and app-launch deny validation steps.
+- `AppInterruptionController` routes fallback target selection through `AppEnforcementPolicy` to avoid a second copy of enforcement logic.
 - Focus Room interruption now derives policy-violating app targets from the active allowlist path, while excluding Fermo and critical macOS shell apps.
 - The dogfood app has `Start App Spike` / `Stop Apps` and `FERMO_AUTOSTART_APP_SPIKE=1`.
 - Diagnostic spike policies use Soft rigor so developers can always stop them during local signing and permission work. Real Locked contracts still use `LockedModeGuard` and break-glass.
 - Sandboxed app interruption failed on a signed build because macOS denied Apple Events and process signaling.
-- Non-sandboxed containing app interruption passed on a signed build with Calculator already running and Calculator relaunched during the active session.
+- Non-sandboxed containing app interruption passed on a signed build with Calculator already running and Calculator relaunched during the active session, but this is now fallback/cleanup rather than the Toolary beta app-enforcement gate.
 - Website blocking still passed after the containing app sandbox was disabled; the Network Extension target remains sandboxed.
 - Detailed handoff: `docs/macos-app-interruption-spike.md`.
+- Missing before beta: Apple Endpoint Security entitlement/provisioning, signed approval on a notarized app, launch/relaunch denial matrix, and uninstall/update cleanup checks.
 
 ## Spike 3: Helper Persistence
 
@@ -78,8 +99,8 @@ Current local implementation status:
 ## Known Constraints
 
 - Network Extension behavior depends on entitlements, signing, and user approval.
-- Endpoint Security may be needed for stronger process enforcement, but it increases review, permission, and distribution complexity.
-- Swift Package code in this repo models the integration boundaries; the real extension target needs Xcode packaging.
+- Endpoint Security is now required before Toolary beta; it increases entitlement, approval, permission, distribution, and manual validation complexity.
+- The real App Guard extension now exists as an Xcode System Extension target and is embedded into the containing app; it still needs Apple entitlement approval and signed runtime validation before beta.
 - Xcode 26 exposes the macOS `filter-data` provider as a System Extension target, embedded in the containing app.
 
 ## Spike 1 Implementation Handoff
@@ -105,3 +126,49 @@ Current local status:
 - Signed runtime validation on build `0.1.0/3` passed after main-app quit: `FermoHelper` stayed running, interrupted Calculator, and reddit/youtube stayed blocked while `example.com` loaded.
 - Replacing a system extension build requires a higher `CFBundleVersion`; the local `0.1.0/3` build replaced `0.1.0/2` and `0.1.0/1`, which remain `terminated waiting to uninstall on reboot`.
 - Firefox is not installed on the local development machine, so Firefox validation remains unchecked.
+
+## Product Slice: Rooms Editor
+
+Current local status:
+
+- `FermoCore.PolicyEditor` adds, updates, and deletes blocklists through a guarded domain use-case instead of ad hoc UI mutation.
+- Room edits validate domain rules, normalize app bundle identifiers, deduplicate repeated rules, and reject weakening mutations during active Locked/Emergency sessions via `LockedModeGuard`.
+- The native Rooms screen now creates, edits, deletes, enables, disables, and persists local blocklist rooms through the shared runtime store.
+- Start Contract now exposes editable rule fields seeded from presets, so custom Focus Room allowlists and Blocklist rules can be changed before a protected session starts.
+- Preferences and System Health now share approval checklist copy, helper controls, App Guard approval entry points, evidence storage state, contract defaults, and diagnostics export.
+- Remaining before beta: signed runtime validation on the final signed/notarized app.
+
+## Product Slice: Schedules
+
+Current local status:
+
+- `FermoCore.ScheduleRestorer` materializes due weekly schedules from `FermoSnapshot.schedules` into active `FocusSession`s without duplicating the same occurrence on repeated helper passes.
+- `FermoCore.DueSessionActivator` promotes one-off scheduled sessions to active during their time window and cancels missed one-off sessions.
+- `FermoCore.WeeklyScheduleEditorDraft` builds new or edited schedules while preserving the existing schedule ID during updates.
+- Scheduled sessions carry `scheduleID`, so helper restore can distinguish schedule-generated sessions from manually started contracts.
+- `FermoSystem.HelperRestorePass` now owns the testable restore loop: it loads the shared snapshot, materializes due weekly schedules, activates due one-off scheduled sessions, writes the updated snapshot when needed, refreshes the content-filter snapshot when active rules change, and clears it after sessions expire.
+- `FermoHelper` delegates snapshot restore/refresh to `HelperRestorePass`, then performs the runtime app-interruption pass from the restored policy.
+- The native Start Contract screen has a compact start-later control plus a recurring schedule editor for weekdays, time, duration, room/blocklist selection, locked mode, enabled state, saved schedule listing, editing, and deletion.
+- Runtime policy persistence preserves saved schedules when policy/session/evidence state changes.
+- Remaining before beta: signed reboot/login validation that proves scheduled restore works outside unit tests.
+
+## Product Slice: Evidence Export
+
+Current local status:
+
+- `FermoCore.EvidenceMarkdownExporter` writes a single evidence entry or the full local ledger to Markdown files.
+- Evidence exports now avoid overwriting existing files by appending numeric suffixes when a destination file already exists.
+- `FermoSnapshot.preferences` stores the default evidence export directory while decoding older snapshots without that field.
+- Runtime persistence preserves both schedules and preferences when policy/session/evidence state changes.
+- The native Evidence screen can export the latest entry and full ledger; Preferences can choose the default export folder, show destination readiness, and export the ledger from the configured location.
+- Remaining before beta: validate exports in a signed app build as part of the product-slice rows in the runtime matrix.
+
+## Product Slice: Preferences and Diagnostics
+
+Current local status:
+
+- System Health and Preferences expose a copyable Markdown diagnostics report with current Network Extension status, helper status, app interruption state, active/scheduled session counts, saved schedules, rooms, evidence count, and evidence export directory.
+- Preferences includes helper controls, Login Items shortcut, privacy copy, default preset/rigor/duration, evidence export folder selection, and ledger export.
+- `FermoPreferences` decodes older snapshots that only contain evidence export preferences, defaulting contract preset/rigor/duration safely.
+- The app target is split into a small `FermoApp.swift` shell, `FermoViewModel.swift`, reusable components, screen files, navigation views, and a system-extension activation adapter.
+- Remaining before beta: signed-app validation of diagnostics values on `/Applications/Fermo.app`.

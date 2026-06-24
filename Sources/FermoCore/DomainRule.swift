@@ -70,3 +70,16 @@ public struct DomainRule: Codable, Equatable, Hashable, Sendable {
         return domain.unicodeScalars.allSatisfy { allowed.contains($0) }
     }
 }
+
+extension Array where Element == DomainRule {
+    /// Collapses rules that resolve to the same `(kind, normalizedPattern)` so that
+    /// `reddit.com` and `https://reddit.com/r/swift` count as one rule. Shared by every
+    /// rule-editing surface (`FocusContractRuleDraft`, `PolicyEditor`,
+    /// `ContentFilterRuleSnapshot`) so dedup behaviour does not diverge between them.
+    func deduplicatedByNormalizedPattern() -> [DomainRule] {
+        var seen: Set<String> = []
+        return filter { rule in
+            seen.insert("\(rule.kind.rawValue):\(rule.normalizedPattern)").inserted
+        }
+    }
+}

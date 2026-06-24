@@ -6,4 +6,5 @@ public enum SystemIntegrationError: Error, Equatable, Sendable {
     case helperRegistrationFailed(String)
     case helperUnregistrationFailed(String)
     case missingAppGroupContainer(String)
+    case diagnosticTeardownRejected(String)
 }

@@ -20,38 +20,28 @@ else {
 
 let store = JSONFileFermoStore(url: snapshotURL)
 let ruleSnapshotStore = ContentFilterRuleSnapshotStore(fileURL: ruleSnapshotURL)
+let restorePass = HelperRestorePass(store: store, ruleSnapshotStore: ruleSnapshotStore)
 
 logger.info("FermoHelper started with app group \(appGroupIdentifier, privacy: .public)")
 
 Task { @MainActor in
-    var didSeeActiveSession = false
-    var didRunEmptyCleanup = false
-    var lastActiveSessionIDs = Set<UUID>()
+    var restoreState = HelperRestorePassState()
 
     while !Task.isCancelled {
         do {
-            let snapshot = try store.load()
-            let policy = snapshot.policy
             let now = Date()
+            let restoreResult = try restorePass.run(at: now, state: &restoreState)
+            if restoreResult.didSaveSnapshot {
+                logger.info("FermoHelper restored due scheduled protection")
+            }
+            let policy = restoreResult.snapshot.policy
             let activeSessions = policy.activeSessions(at: now)
-            let activeSessionIDs = Set(activeSessions.map(\.id))
 
             if activeSessions.isEmpty {
-                if didSeeActiveSession || !didRunEmptyCleanup {
+                if restoreResult.didClearRuleSnapshot {
                     logger.info("No active persisted session remains; clearing helper rule snapshot")
-                    try ruleSnapshotStore.write(.inactive(at: now))
-                    didSeeActiveSession = false
-                    didRunEmptyCleanup = true
-                    lastActiveSessionIDs = []
                 }
             } else {
-                didSeeActiveSession = true
-                didRunEmptyCleanup = false
-                if activeSessionIDs != lastActiveSessionIDs {
-                    try ruleSnapshotStore.write(ContentFilterRuleSnapshot(policy: policy, at: now))
-                    lastActiveSessionIDs = activeSessionIDs
-                }
-
                 let report = appInterruptionController.interruptPolicyViolatingAppsReport(
                     policy: policy,
                     at: now,
