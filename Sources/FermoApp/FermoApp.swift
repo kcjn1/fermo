@@ -3,6 +3,7 @@ import FermoSystem
 import AppKit
 import OSLog
 import SwiftUI
+import UniformTypeIdentifiers
 
 #if canImport(SystemExtensions)
 import SystemExtensions
@@ -90,6 +91,12 @@ final class FermoViewModel: ObservableObject {
     @Published var latestAppInterruptionReport: AppInterruptionReport?
     @Published var systemMessage: String?
     @Published var presets: [FocusPreset] = []
+    @Published var hasCompletedOnboarding: Bool
+    @Published var permissionProgress = OnboardingProgress(statuses: [])
+
+    private let permissionsProbe = SystemPermissionsProbe()
+    private let policyEditor = PolicyEditor()
+    private static let onboardingDefaultsKey = "com.toolary.fermo.hasCompletedOnboarding"
 
     private let websiteBlockingController: any WebsiteBlockingControlling
     private let protectionRuntimeController: ProtectionRuntimeController
@@ -118,6 +125,7 @@ final class FermoViewModel: ObservableObject {
         self.policy = Self.initialPolicy(sharedStore: sharedStore)
         self.presets = (try? FocusPresetLibrary.defaults()) ?? []
         self.helperStatus = helperRegistrar.status()
+        self.hasCompletedOnboarding = UserDefaults.standard.bool(forKey: Self.onboardingDefaultsKey)
 
         if ProcessInfo.processInfo.environment["FERMO_AUTOSTART_WEBSITE_SPIKE"] == "1" {
             logger.info("Autostart requested for website spike")
@@ -604,6 +612,39 @@ final class FermoViewModel: ObservableObject {
             }
         }
 
+        if let editError = error as? PolicyEditError {
+            switch editError {
+            case .blocklistNotFound:
+                return "that room no longer exists"
+            case .duplicateDomain(let value):
+                return "\(value) is already blocked here"
+            case .duplicateApp(let value):
+                return "\(value) is already blocked here"
+            case .emptyName:
+                return "a room needs a name"
+            }
+        }
+
+        if let quickBlockError = error as? QuickBlockError {
+            switch quickBlockError {
+            case .emptyRoom:
+                return "this room has no blocked sites or apps yet"
+            }
+        }
+
+        if let validationError = error as? FermoValidationError {
+            switch validationError {
+            case .emptyDomainRule:
+                return "enter a website to block"
+            case .invalidDomainRule(let value):
+                return "\(value) is not a valid domain"
+            case .invalidDuration:
+                return "duration must be greater than zero"
+            case .emptySchedule:
+                return "schedule needs at least one day"
+            }
+        }
+
         return error.localizedDescription
     }
 
@@ -644,11 +685,29 @@ final class FermoViewModel: ObservableObject {
 
     private static func initialPolicy(sharedStore: JSONFileFermoStore?) -> FermoPolicy {
         if let persistedPolicy = try? sharedStore?.load().policy,
-           !persistedPolicy.activeSessions(at: Date()).isEmpty {
+           !persistedPolicy.blocklists.isEmpty || !persistedPolicy.activeSessions(at: Date()).isEmpty {
             return persistedPolicy
         }
 
-        return FermoPolicy()
+        return defaultSeededPolicy()
+    }
+
+    /// A usable starting point on first launch: editable rooms derived from the
+    /// built-in presets, so Rooms and Quick Block are not empty out of the box.
+    static func defaultSeededPolicy() -> FermoPolicy {
+        guard let presets = try? FocusPresetLibrary.defaults() else {
+            return FermoPolicy()
+        }
+
+        let blocklists = presets.map { preset in
+            Blocklist(
+                name: preset.name,
+                domainRules: preset.blockedDomains,
+                appRules: preset.blockedApps,
+                isEnabled: true
+            )
+        }
+        return FermoPolicy(blocklists: blocklists)
     }
 }
 
@@ -818,56 +877,10 @@ struct FermoMenuView: View {
 
             Divider()
 
-            HStack {
-                Button {
-                    Task { await model.startWebsiteSpike() }
-                } label: {
-                    Label("Start Website Spike", systemImage: "play.fill")
-                }
-                .disabled(model.isUpdatingWebsiteFilter)
-
-                Button {
-                    Task { await model.stopWebsiteSpike() }
-                } label: {
-                    Label("Stop", systemImage: "stop.fill")
-                }
-                .disabled(model.isUpdatingWebsiteFilter)
-            }
-
-            HStack {
-                Button {
-                    Task { await model.startAppSpike() }
-                } label: {
-                    Label("Start App Spike", systemImage: "play.circle")
-                }
-
-                Button {
-                    Task { await model.stopAppSpike() }
-                } label: {
-                    Label("Stop Apps", systemImage: "stop.circle")
-                }
-                .disabled(!model.isAppInterruptionMonitorActive)
-            }
-
-            HStack {
-                Button {
-                    Task { await model.startHelperSpike() }
-                } label: {
-                    Label("Start Helper Spike", systemImage: "gearshape.2")
-                }
-                .disabled(model.isUpdatingWebsiteFilter)
-
-                Button {
-                    Task { await model.stopHelperSpike() }
-                } label: {
-                    Label("Unregister", systemImage: "xmark.circle")
-                }
-            }
-
             Button {
-                model.openLoginItemsSettings()
+                FermoMainWindowPresenter.shared.show()
             } label: {
-                Label("Open Login Items", systemImage: "switch.2")
+                Label(model.activeSession == nil ? "Start a Block" : "Manage Session", systemImage: "bolt.shield")
             }
 
             if let systemMessage = model.systemMessage {
@@ -919,15 +932,30 @@ struct FermoDashboardView: View {
         .tint(FermoTheme.accent)
         .frame(minWidth: 980, minHeight: 680)
         .task {
-            await model.refreshWebsiteBlockingStatus()
-            model.refreshHelperStatus()
+            await model.refreshPermissions()
         }
+        .sheet(isPresented: onboardingBinding) {
+            FermoOnboardingView(model: model)
+                .frame(width: 560, height: 620)
+        }
+    }
+
+    private var onboardingBinding: Binding<Bool> {
+        Binding(
+            get: { !model.hasCompletedOnboarding },
+            set: { presented in
+                if presented == false {
+                    model.completeOnboarding()
+                }
+            }
+        )
     }
 }
 
 private enum FermoArea: String, CaseIterable, Identifiable, Hashable {
     case today
     case active
+    case quickBlock
     case start
     case rooms
     case evidence
@@ -936,7 +964,7 @@ private enum FermoArea: String, CaseIterable, Identifiable, Hashable {
 
     var id: Self { self }
 
-    static let session: [Self] = [.today, .active, .start]
+    static let session: [Self] = [.today, .active, .quickBlock, .start]
     static let library: [Self] = [.rooms, .evidence]
     static let system: [Self] = [.health, .preferences]
 
@@ -944,6 +972,7 @@ private enum FermoArea: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .today: "Today"
         case .active: "Active Session"
+        case .quickBlock: "Quick Block"
         case .start: "Start Contract"
         case .rooms: "Rooms"
         case .evidence: "Evidence"
@@ -956,6 +985,7 @@ private enum FermoArea: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .today: "house"
         case .active: "timer"
+        case .quickBlock: "bolt.shield"
         case .start: "play.fill"
         case .rooms: "square.grid.2x2"
         case .evidence: "list.bullet.clipboard"
@@ -989,6 +1019,8 @@ private struct FermoDetailView: View {
                 }
             case .active:
                 FermoActiveSessionView(model: model)
+            case .quickBlock:
+                FermoQuickBlockView(model: model)
             case .start:
                 FermoStartContractView(model: model)
             case .rooms:
@@ -1539,6 +1571,8 @@ private struct FermoStartContractView: View {
     @State private var mode = FocusMode.focusRoom
     @State private var rigor = ContractRigor.locked
     @State private var duration = 90.0
+    @AppStorage("com.toolary.fermo.defaultPreset") private var defaultPresetID = ""
+    @AppStorage("com.toolary.fermo.defaultDuration") private var defaultDuration = 60.0
 
     var body: some View {
         FermoScreen(
@@ -1576,23 +1610,14 @@ private struct FermoStartContractView: View {
                     Text("Locked means no normal stop path during the session. Fermo does not pretend to be tamper-proof.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    HStack {
-                        Button {
-                            startContract()
-                        } label: {
-                            Label("Start Contract", systemImage: "play.fill")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(FermoTheme.accent)
-                        .disabled(model.isUpdatingWebsiteFilter)
-
-                        Button {
-                            Task { await model.stopHelperSpike() }
-                        } label: {
-                            Label("Stop Spike", systemImage: "stop.fill")
-                        }
-                        .buttonStyle(.bordered)
+                    Button {
+                        startContract()
+                    } label: {
+                        Label("Start Contract", systemImage: "play.fill")
                     }
+                    .buttonStyle(.borderedProminent)
+                    .tint(FermoTheme.accent)
+                    .disabled(model.isUpdatingWebsiteFilter)
                 }
             }
 
@@ -1623,7 +1648,7 @@ private struct FermoStartContractView: View {
                 }
             }
         }
-        .onAppear(perform: applySelectedPreset)
+        .onAppear(perform: seedDefaults)
         .onChange(of: selectedPresetID) {
             applySelectedPreset()
         }
@@ -1631,6 +1656,14 @@ private struct FermoStartContractView: View {
 
     private var selectedPreset: FocusPreset? {
         model.presets.first { $0.id == selectedPresetID } ?? model.presets.first
+    }
+
+    private func seedDefaults() {
+        if !defaultPresetID.isEmpty, model.presets.contains(where: { $0.id == defaultPresetID }) {
+            selectedPresetID = defaultPresetID
+        }
+        duration = defaultDuration
+        applySelectedPreset()
     }
 
     private func applySelectedPreset() {
@@ -1681,53 +1714,429 @@ private struct PresetPreview: View {
 
 private struct FermoRoomsView: View {
     @ObservedObject var model: FermoViewModel
+    @State private var newRoomName = ""
 
     var body: some View {
         FermoScreen(
             title: "Rooms",
-            subtitle: "Reusable focus environments: allow what belongs, block what does not."
+            subtitle: "Reusable focus environments: add the sites and apps you want blocked."
         ) {
             if model.isRuleWeakeningLocked, let session = model.activeSession {
                 FermoStatusStrip(
-                    label: "Rules locked",
-                    reason: "\(session.rigor.displayName) contract is active. Editing that weakens protection is locked until \(session.endsAt.formatted(date: .omitted, time: .shortened)).",
+                    label: "Weakening locked",
+                    reason: "\(session.rigor.displayName) session is active. You can still add blocks, but removing them is locked until \(session.endsAt.formatted(date: .omitted, time: .shortened)).",
                     tone: .warning
                 )
             }
 
-            ForEach(model.policy.blocklists) { blocklist in
-                FermoPanel(blocklist.name, subtitle: blocklist.isEnabled ? "Enabled" : "Disabled", symbol: "door.left.hand.closed") {
-                    VStack(alignment: .leading, spacing: 12) {
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                            RuleList(title: "Blocked websites", symbol: "globe", items: blocklist.domainRules.map(\.normalizedPattern))
-                            RuleList(title: "Blocked apps", symbol: "app.dashed", items: blocklist.appRules.map { "\($0.displayName) · \($0.bundleIdentifier)" })
-                        }
-                        HStack {
-                            Button {
-                                model.requestRuleWeakeningEdit()
-                            } label: {
-                                Label("Edit Rules", systemImage: "pencil")
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(model.isRuleWeakeningLocked)
+            FermoPanel("New Room", subtitle: "Group related distractions you want to block together.", symbol: "plus.square.on.square") {
+                HStack {
+                    TextField("Room name (e.g. Social Media)", text: $newRoomName)
+                        .onSubmit(createRoom)
+                    Button("Add Room", action: createRoom)
+                        .buttonStyle(.borderedProminent)
+                        .tint(FermoTheme.accent)
+                        .disabled(newRoomName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
 
-                            if model.isRuleWeakeningLocked {
-                                Button {
-                                    model.requestRuleWeakeningEdit()
-                                } label: {
-                                    Label("Why Locked?", systemImage: "lock")
-                                }
-                                .buttonStyle(.bordered)
+            if model.policy.blocklists.isEmpty {
+                FermoPanel("No Rooms Yet", symbol: "square.grid.2x2") {
+                    Text("Create a room above, then add the websites and apps you want Fermo to block during a session.")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                ForEach(model.policy.blocklists) { blocklist in
+                    RoomEditorCard(model: model, blocklist: blocklist)
+                }
+            }
+        }
+    }
+
+    private func createRoom() {
+        let name = newRoomName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        model.createRoom(named: name)
+        newRoomName = ""
+    }
+}
+
+private struct RoomEditorCard: View {
+    @ObservedObject var model: FermoViewModel
+    let blocklist: Blocklist
+    @State private var newDomain = ""
+    @State private var showingAppImporter = false
+
+    var body: some View {
+        FermoPanel(
+            blocklist.name,
+            subtitle: "\(blocklist.domainRules.count) sites · \(blocklist.appRules.count) apps",
+            symbol: "door.left.hand.closed"
+        ) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Toggle("Enabled", isOn: Binding(
+                        get: { blocklist.isEnabled },
+                        set: { newValue in Task { await model.setRoom(blocklist.id, enabled: newValue) } }
+                    ))
+                    .toggleStyle(.switch)
+                    .tint(FermoTheme.accent)
+                    Spacer()
+                    Button(role: .destructive) {
+                        Task { await model.deleteRoom(blocklist.id) }
+                    } label: {
+                        Label("Delete Room", systemImage: "trash")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(model.isRuleWeakeningLocked)
+                }
+
+                // Websites
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Blocked websites", systemImage: "globe")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Blocked in every browser (Safari, Chrome, Arc, Dia, Firefox…) via the network filter.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        TextField("Add website (e.g. reddit.com)", text: $newDomain)
+                            .onSubmit(addDomain)
+                        Button("Add", action: addDomain)
+                            .disabled(newDomain.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
+                    ForEach(blocklist.domainRules.map(\.normalizedPattern).sorted(), id: \.self) { pattern in
+                        HStack {
+                            Text(pattern)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button {
+                                Task { await model.removeDomain(pattern, from: blocklist.id) }
+                            } label: {
+                                Image(systemName: "minus.circle")
                             }
+                            .buttonStyle(.borderless)
+                            .disabled(model.isRuleWeakeningLocked)
+                        }
+                    }
+                }
+
+                Divider()
+
+                // Apps
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Blocked apps", systemImage: "app.dashed")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Blocked apps are asked to quit during a session. To block only a website, add the site above instead of the browser.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button {
+                        showingAppImporter = true
+                    } label: {
+                        Label("Add App…", systemImage: "plus.app")
+                    }
+                    ForEach(blocklist.appRules.sorted { $0.displayName < $1.displayName }, id: \.bundleIdentifier) { rule in
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                HStack(spacing: 6) {
+                                    Text(rule.displayName)
+                                        .font(.caption.weight(.semibold))
+                                    if model.isBrowserBundleIdentifier(rule.bundleIdentifier) {
+                                        Text("browser")
+                                            .font(.caption2)
+                                            .foregroundStyle(FermoTheme.warning)
+                                    }
+                                }
+                                Text(rule.bundleIdentifier)
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button {
+                                Task { await model.removeApp(rule.bundleIdentifier, from: blocklist.id) }
+                            } label: {
+                                Image(systemName: "minus.circle")
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(model.isRuleWeakeningLocked)
                         }
                     }
                 }
             }
+        }
+        .fileImporter(
+            isPresented: $showingAppImporter,
+            allowedContentTypes: [.application],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first {
+                    Task { await model.addApp(from: url, to: blocklist.id) }
+                }
+            case .failure(let error):
+                model.systemMessage = "Could not pick app: \(error.localizedDescription)"
+            }
+        }
+    }
 
-            FermoPanel("Locked Session Rule", symbol: "lock") {
-                Text("During Locked or Emergency sessions, Fermo routes rule edits through LockedModeGuard before any weakening mutation can proceed.")
+    private func addDomain() {
+        let value = newDomain.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return }
+        Task { await model.addDomain(value, to: blocklist.id) }
+        newDomain = ""
+    }
+}
+
+private struct FermoQuickBlockView: View {
+    @ObservedObject var model: FermoViewModel
+    @State private var selectedRoomID: UUID?
+    @AppStorage("com.toolary.fermo.defaultDuration") private var duration = 60.0
+    @AppStorage("com.toolary.fermo.defaultRigor") private var rigorRaw = ContractRigor.soft.rawValue
+
+    private var rigor: ContractRigor { ContractRigor(rawValue: rigorRaw) ?? .soft }
+
+    private var selectedRoom: Blocklist? {
+        model.policy.blocklists.first { $0.id == selectedRoomID } ?? model.policy.blocklists.first
+    }
+
+    var body: some View {
+        FermoScreen(
+            title: "Quick Block",
+            subtitle: "Block a room right now — no task or outcome required."
+        ) {
+            if model.activeSession != nil {
+                FermoStatusStrip(
+                    label: "Session already active",
+                    reason: "Finish or break glass on the current session before starting a new block.",
+                    tone: .warning
+                )
+            }
+
+            FermoPanel("Block Now", subtitle: "Pick a room, set how long, and start.", symbol: "bolt.shield") {
+                if model.policy.blocklists.isEmpty {
+                    Text("Create a room in Rooms first, then come back to Quick Block.")
+                        .foregroundStyle(.secondary)
+                } else {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Picker("Room", selection: Binding(
+                            get: { selectedRoom?.id ?? model.policy.blocklists.first?.id },
+                            set: { selectedRoomID = $0 }
+                        )) {
+                            ForEach(model.policy.blocklists) { room in
+                                Text(room.name).tag(Optional(room.id))
+                            }
+                        }
+                        .pickerStyle(.menu)
+
+                        Picker("Rigor", selection: Binding(
+                            get: { rigor },
+                            set: { rigorRaw = $0.rawValue }
+                        )) {
+                            ForEach(ContractRigor.allCases, id: \.self) { value in
+                                Text(value.displayName).tag(value)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        VStack(alignment: .leading) {
+                            Text("Duration: \(Int(duration)) min")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Slider(value: $duration, in: 5...240, step: 5)
+                        }
+
+                        Text(rigor == .soft
+                             ? "Soft blocks let you stop early with an honest reason."
+                             : "\(rigor.displayName) blocks have no normal stop path until the timer ends. Fermo is not tamper-proof.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Button {
+                            if let room = selectedRoom {
+                                Task { await model.startQuickBlock(room: room, duration: duration * 60, rigor: rigor) }
+                            }
+                        } label: {
+                            Label("Start Quick Block", systemImage: "bolt.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(FermoTheme.accent)
+                        .disabled(model.isUpdatingWebsiteFilter || model.activeSession != nil || selectedRoom == nil)
+                    }
+                }
+            }
+
+            if let room = selectedRoom {
+                FermoPanel("What \(room.name) blocks", symbol: "scope") {
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                        RuleList(title: "Blocked websites", symbol: "globe", items: room.domainRules.map(\.normalizedPattern))
+                        RuleList(title: "Blocked apps", symbol: "app.dashed", items: room.appRules.map { "\($0.displayName) · \($0.bundleIdentifier)" })
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct FermoOnboardingView: View {
+    @ObservedObject var model: FermoViewModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                Label("Welcome to Fermo", systemImage: "lock.shield")
+                    .font(.title2.weight(.semibold))
+                Text("Fermo blocks distracting sites and apps during a focus session. Grant these once so protection can actually hold. You stay in control — nothing is enforced until you start a session.")
+                    .font(.callout)
                     .foregroundStyle(.secondary)
             }
+            .padding(20)
+
+            Divider()
+
+            ScrollView {
+                VStack(spacing: 12) {
+                    PermissionRow(
+                        kind: .websiteFilter,
+                        state: model.permissionProgress.state(for: .websiteFilter),
+                        detail: "Required. A macOS network filter blocks sites in every browser (Safari, Chrome, Arc, Dia, Firefox).",
+                        actionTitle: "Enable"
+                    ) {
+                        await model.requestWebsiteFilter()
+                    }
+
+                    PermissionRow(
+                        kind: .loginItem,
+                        state: model.permissionProgress.state(for: .loginItem),
+                        detail: "Recommended. Keeps protection running after you quit Fermo and after login.",
+                        actionTitle: "Register"
+                    ) {
+                        await model.requestLoginItem()
+                    }
+
+                    PermissionRow(
+                        kind: .notifications,
+                        state: model.permissionProgress.state(for: .notifications),
+                        detail: "Optional. Alerts you when a session starts, ends, or protection degrades.",
+                        actionTitle: "Allow"
+                    ) {
+                        await model.requestNotifications()
+                    }
+
+                    PermissionRow(
+                        kind: .accessibility,
+                        state: model.permissionProgress.state(for: .accessibility),
+                        detail: "Optional. Not needed today; reserved for stronger app blocking later. Opens System Settings.",
+                        actionTitle: "Open Settings"
+                    ) {
+                        await model.requestAccessibility()
+                    }
+                }
+                .padding(20)
+            }
+
+            Divider()
+
+            HStack {
+                Button("Open System Settings") { model.openSystemSettings() }
+                    .buttonStyle(.bordered)
+                Spacer()
+                Text("\(model.permissionProgress.satisfiedCount)/\(model.permissionProgress.totalCount) granted")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button(model.permissionProgress.isReady ? "Finish" : "Continue Anyway") {
+                    model.completeOnboarding()
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(FermoTheme.accent)
+            }
+            .padding(20)
+        }
+        .background(FermoTheme.background)
+        .task { await model.refreshPermissions() }
+    }
+}
+
+private struct PermissionRow: View {
+    let kind: PermissionKind
+    let state: PermissionState
+    let detail: String
+    let actionTitle: String
+    let action: () async -> Void
+    @State private var isWorking = false
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: symbol)
+                .font(.title3)
+                .foregroundStyle(tone.color)
+                .frame(width: 26)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text(kind.title)
+                        .font(.subheadline.weight(.semibold))
+                    if kind.isRequired {
+                        Text("required")
+                            .font(.caption2)
+                            .foregroundStyle(FermoTheme.warning)
+                    }
+                }
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            VStack(alignment: .trailing, spacing: 6) {
+                FermoStatusBadge(label: stateLabel, tone: tone)
+                if state != .satisfied {
+                    Button {
+                        isWorking = true
+                        Task {
+                            await action()
+                            isWorking = false
+                        }
+                    } label: {
+                        if isWorking {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Text(actionTitle)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isWorking)
+                }
+            }
+        }
+        .padding(14)
+        .background(FermoTheme.panelRaised)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).stroke(FermoTheme.line))
+    }
+
+    private var symbol: String {
+        switch kind {
+        case .websiteFilter: "network"
+        case .loginItem: "externaldrive"
+        case .notifications: "bell"
+        case .accessibility: "accessibility"
+        }
+    }
+
+    private var stateLabel: String {
+        switch state {
+        case .satisfied: "Granted"
+        case .needsApproval: "Approve in Settings"
+        case .notDetermined: "Not set"
+        case .unavailable: "Unavailable"
+        }
+    }
+
+    private var tone: FermoStatusBadge.Tone {
+        switch state {
+        case .satisfied: .ok
+        case .needsApproval: .warning
+        case .notDetermined: .muted
+        case .unavailable: .danger
         }
     }
 }
@@ -1763,6 +2172,7 @@ private struct RuleList: View {
 
 private struct FermoEvidenceView: View {
     @ObservedObject var model: FermoViewModel
+    @AppStorage("com.toolary.fermo.evidenceDirectory") private var evidenceDirectory = ""
 
     var body: some View {
         FermoScreen(
@@ -1778,6 +2188,26 @@ private struct FermoEvidenceView: View {
             }
 
             FermoPanel("Ledger", subtitle: "\(model.policy.evidenceLog.count) local entries", symbol: "list.bullet.clipboard") {
+                HStack {
+                    Button {
+                        export(text: model.ledgerMarkdown(), suggestedName: "fermo-evidence-ledger.md")
+                    } label: {
+                        Label("Export Ledger…", systemImage: "square.and.arrow.up")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(model.policy.evidenceLog.isEmpty)
+
+                    if let latest = model.policy.evidenceLog.last {
+                        Button {
+                            export(text: model.markdown(for: latest), suggestedName: "fermo-\(latest.sessionID.uuidString.prefix(8)).md")
+                        } label: {
+                            Label("Export Latest…", systemImage: "doc.badge.arrow.up")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+                .padding(.bottom, 4)
+
                 let entries = Array(model.policy.evidenceLog.reversed())
                 if entries.isEmpty {
                     Text("No evidence recorded yet. Complete a contract, attach proof, or use break glass with a reason.")
@@ -1805,6 +2235,23 @@ private struct FermoEvidenceView: View {
                     }
                 }
             }
+        }
+    }
+
+    private func export(text: String, suggestedName: String) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = suggestedName
+        panel.allowedContentTypes = [.init(filenameExtension: "md") ?? .plainText]
+        if !evidenceDirectory.isEmpty {
+            panel.directoryURL = URL(fileURLWithPath: evidenceDirectory, isDirectory: true)
+        }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try text.write(to: url, atomically: true, encoding: .utf8)
+            evidenceDirectory = url.deletingLastPathComponent().path
+            model.systemMessage = "Exported evidence to \(url.lastPathComponent)."
+        } catch {
+            model.systemMessage = "Could not export evidence: \(error.localizedDescription)"
         }
     }
 }
@@ -1942,36 +2389,38 @@ private struct FermoSystemHealthView: View {
             subtitle: "What macOS lets Fermo enforce, in plain language."
         ) {
             FermoStatusStrip(
-                label: "Mostly protected",
-                reason: "Local signed proof passed for the three core gates. Manual lifecycle/browser checks remain before beta.",
-                tone: .warning
+                label: model.permissionProgress.isReady ? "Protection ready" : "Setup needed",
+                reason: model.permissionProgress.isReady
+                    ? "Required permissions are granted. Website and app blocking can run during a session."
+                    : "The website filter still needs approval before blocking can be trusted. Open onboarding or System Settings.",
+                tone: model.permissionProgress.isReady ? .ok : .warning,
+                actionTitle: model.permissionProgress.isReady ? nil : "Run Setup",
+                action: model.permissionProgress.isReady ? nil : { model.reopenOnboarding() }
             )
 
             FermoPanel("Approvals & Extensions", symbol: "lock.shield") {
                 VStack(spacing: 0) {
-                    FermoHealthRow(title: "System Extension", detail: "Build 0.1.0/3 activated locally. Previous builds uninstall after reboot.", symbol: "lock.shield", tone: .ok)
-                    Divider()
                     FermoHealthRow(title: "Network Extension Content Filter", detail: "Status: \(model.websiteBlockingStatus.displayName).", symbol: "network", tone: model.websiteBlockingStatus.tone)
                     Divider()
-                    FermoHealthRow(title: "Signing / Developer Team", detail: "Team ID MP3AWS77U3. Development signing only.", symbol: "checkmark.seal", tone: .ok)
+                    FermoHealthRow(title: "Helper / Login Item", detail: "Status: \(model.helperStatus.displayName).", symbol: "externaldrive", tone: model.helperStatus.tone)
                     Divider()
-                    FermoHealthRow(title: "Notarization", detail: "Not cut yet. Required before Toolary beta distribution.", symbol: "doc.text", tone: .muted)
+                    FermoHealthRow(title: "Notifications", detail: "Status: \(Self.stateLabel(model.permissionProgress.state(for: .notifications))).", symbol: "bell", tone: Self.tone(for: model.permissionProgress.state(for: .notifications)))
+                    Divider()
+                    FermoHealthRow(title: "App Control (Accessibility)", detail: "Status: \(Self.stateLabel(model.permissionProgress.state(for: .accessibility))). Optional today.", symbol: "accessibility", tone: Self.tone(for: model.permissionProgress.state(for: .accessibility)))
                 }
             }
 
             FermoPanel("Blocking & Interruption", symbol: "shield") {
                 VStack(spacing: 0) {
-                    FermoHealthRow(title: "Website Blocking", detail: "Spike scope: reddit.com and youtube.com fail closed while active.", symbol: "globe", tone: model.websiteBlockingStatus.tone)
+                    FermoHealthRow(title: "Website Blocking", detail: "\(model.protectedDomains.count) domains blocked in the active session, across every browser.", symbol: "globe", tone: model.websiteBlockingStatus.tone)
                     Divider()
                     FermoHealthRow(title: "App Interruption", detail: model.appInterruptionStatusText, symbol: "app.dashed", tone: model.isAppInterruptionMonitorActive ? .ok : .muted)
                     Divider()
-                    FermoHealthRow(title: "Helper / Login Item", detail: "Status: \(model.helperStatus.displayName). Main-app quit proof passed locally.", symbol: "externaldrive", tone: model.helperStatus.tone)
-                    Divider()
-                    FermoHealthRow(title: "App Group Shared State", detail: "App, helper, and filter share snapshots through the configured app group.", symbol: "tray.full", tone: .ok)
+                    FermoHealthRow(title: "Enforcement Honesty", detail: "App blocking asks apps to quit; it is not tamper-proof and does not use Endpoint Security.", symbol: "info.circle", tone: .muted)
                 }
             }
 
-            FermoPanel("Manual Checks Still Blocking Beta", symbol: "questionmark.circle") {
+            FermoPanel("Verify Before Trusting a Beta", subtitle: "Checks that a signed build must still pass manually.", symbol: "questionmark.circle") {
                 VStack(spacing: 0) {
                     ManualCheckRow("Sleep / wake restore")
                     Divider()
@@ -1979,11 +2428,56 @@ private struct FermoSystemHealthView: View {
                     Divider()
                     ManualCheckRow("Wi-Fi change")
                     Divider()
-                    ManualCheckRow("Firefox validation")
-                    Divider()
-                    ManualCheckRow("Safari private and Chrome incognito")
+                    ManualCheckRow("Firefox and private/incognito windows")
                 }
             }
+
+            DisclosureGroup {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Low-level spikes for debugging the Network Extension, app interruption, and helper. Not part of normal use.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Button("Website Spike") { Task { await model.startWebsiteSpike() } }
+                        Button("Stop") { Task { await model.stopWebsiteSpike() } }
+                    }
+                    HStack {
+                        Button("App Spike") { Task { await model.startAppSpike() } }
+                        Button("Stop Apps") { Task { await model.stopAppSpike() } }
+                            .disabled(!model.isAppInterruptionMonitorActive)
+                    }
+                    HStack {
+                        Button("Helper Spike") { Task { await model.startHelperSpike() } }
+                        Button("Unregister Helper") { Task { await model.stopHelperSpike() } }
+                    }
+                    Button("Open Login Items") { model.openLoginItemsSettings() }
+                }
+                .padding(.top, 8)
+            } label: {
+                Label("Diagnostics (advanced)", systemImage: "wrench.and.screwdriver")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .padding(12)
+            .background(FermoTheme.panel)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+    }
+
+    private static func stateLabel(_ state: PermissionState) -> String {
+        switch state {
+        case .satisfied: "Granted"
+        case .needsApproval: "Needs approval"
+        case .notDetermined: "Not set"
+        case .unavailable: "Unavailable"
+        }
+    }
+
+    private static func tone(for state: PermissionState) -> FermoStatusBadge.Tone {
+        switch state {
+        case .satisfied: .ok
+        case .needsApproval: .warning
+        case .notDetermined: .muted
+        case .unavailable: .danger
         }
     }
 }
@@ -2032,38 +2526,67 @@ private struct ManualCheckRow: View {
 
 private struct FermoPreferencesView: View {
     @ObservedObject var model: FermoViewModel
+    @AppStorage("com.toolary.fermo.defaultPreset") private var defaultPresetID = ""
+    @AppStorage("com.toolary.fermo.defaultRigor") private var defaultRigorRaw = ContractRigor.soft.rawValue
+    @AppStorage("com.toolary.fermo.defaultDuration") private var defaultDuration = 60.0
+    @AppStorage("com.toolary.fermo.evidenceDirectory") private var evidenceDirectory = ""
 
     var body: some View {
         FermoScreen(
             title: "Preferences",
-            subtitle: "Defaults, helper registration, evidence storage, and diagnostics."
+            subtitle: "Defaults, permissions, evidence storage, and helper."
         ) {
-            FermoPanel("Launch & Helper", symbol: "switch.2") {
+            FermoPanel("Session Defaults", subtitle: "Prefilled when you start a Quick Block or contract.", symbol: "slider.horizontal.3") {
                 VStack(alignment: .leading, spacing: 12) {
-                    FermoHealthRow(title: "Helper", detail: "Current status: \(model.helperStatus.displayName).", symbol: "externaldrive", tone: model.helperStatus.tone)
+                    Picker("Default preset", selection: $defaultPresetID) {
+                        Text("None").tag("")
+                        ForEach(model.presets) { preset in
+                            Text(preset.name).tag(preset.id)
+                        }
+                    }
+                    Picker("Default rigor", selection: $defaultRigorRaw) {
+                        ForEach(ContractRigor.allCases, id: \.self) { value in
+                            Text(value.displayName).tag(value.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    VStack(alignment: .leading) {
+                        Text("Default duration: \(Int(defaultDuration)) min")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Slider(value: $defaultDuration, in: 5...240, step: 5)
+                    }
+                }
+            }
+
+            FermoPanel("Permissions", subtitle: "\(model.permissionProgress.satisfiedCount)/\(model.permissionProgress.totalCount) granted.", symbol: "lock.shield") {
+                VStack(alignment: .leading, spacing: 10) {
+                    FermoHealthRow(title: "Website filter", detail: model.websiteBlockingStatus.displayName, symbol: "network", tone: model.websiteBlockingStatus.tone)
+                    FermoHealthRow(title: "Helper / Login Item", detail: model.helperStatus.displayName, symbol: "externaldrive", tone: model.helperStatus.tone)
                     HStack {
-                        Button {
-                            Task { await model.startHelperSpike() }
-                        } label: {
-                            Label("Start Helper Spike", systemImage: "play.fill")
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(FermoTheme.accent)
-                        .disabled(model.isUpdatingWebsiteFilter)
+                        Button("Re-run Setup") { model.reopenOnboarding() }
+                            .buttonStyle(.borderedProminent)
+                            .tint(FermoTheme.accent)
+                        Button("Open Login Items") { model.openLoginItemsSettings() }
+                            .buttonStyle(.bordered)
+                        Button("Open System Settings") { model.openSystemSettings() }
+                            .buttonStyle(.bordered)
+                    }
+                }
+            }
 
-                        Button {
-                            Task { await model.stopHelperSpike() }
-                        } label: {
-                            Label("Unregister Helper", systemImage: "xmark.circle")
+            FermoPanel("Evidence Storage", subtitle: "Where exported Markdown is saved by default.", symbol: "folder") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(evidenceDirectory.isEmpty ? "No default folder chosen. You'll pick a location each export." : evidenceDirectory)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Button("Choose Folder…") { chooseEvidenceDirectory() }
+                            .buttonStyle(.bordered)
+                        if !evidenceDirectory.isEmpty {
+                            Button("Clear") { evidenceDirectory = "" }
+                                .buttonStyle(.bordered)
                         }
-                        .buttonStyle(.bordered)
-
-                        Button {
-                            model.openLoginItemsSettings()
-                        } label: {
-                            Label("Open Login Items", systemImage: "switch.2")
-                        }
-                        .buttonStyle(.bordered)
                     }
                 }
             }
@@ -2072,6 +2595,16 @@ private struct FermoPreferencesView: View {
                 Text("Fermo stores rooms, sessions, and evidence locally. No cloud sync and no AI calls in v1.")
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private func chooseEvidenceDirectory() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        if panel.runModal() == .OK, let url = panel.url {
+            evidenceDirectory = url.path
         }
     }
 }
@@ -2164,4 +2697,228 @@ private extension EvidenceOutcome {
         case .breakGlass: .danger
         }
     }
+}
+
+// MARK: - Onboarding, permissions, editing, Quick Block, export
+
+extension FermoViewModel {
+    // MARK: Permissions
+
+    func refreshPermissions() async {
+        websiteBlockingStatus = await websiteBlockingController.status()
+        helperStatus = helperRegistrar.status()
+        let notifications = await permissionsProbe.notificationState()
+        let accessibility = permissionsProbe.accessibilityState()
+        permissionProgress = OnboardingProgress(statuses: [
+            PermissionStatus(kind: .websiteFilter, state: Self.filterPermissionState(websiteBlockingStatus)),
+            PermissionStatus(kind: .loginItem, state: Self.loginPermissionState(helperStatus)),
+            PermissionStatus(kind: .notifications, state: notifications),
+            PermissionStatus(kind: .accessibility, state: accessibility)
+        ])
+    }
+
+    func requestWebsiteFilter() async {
+        do {
+            try await systemExtensionActivationController.activate()
+            try await websiteBlockingController.prepare()
+            systemMessage = "Website filter requested. Approve Fermo in System Settings if macOS asks."
+        } catch {
+            systemMessage = "Website filter setup: \(Self.describe(error))"
+        }
+        await refreshPermissions()
+    }
+
+    func requestLoginItem() async {
+        _ = registerHelperForActiveContractIfPossible()
+        await refreshPermissions()
+    }
+
+    func requestNotifications() async {
+        _ = await permissionsProbe.requestNotifications()
+        await refreshPermissions()
+    }
+
+    func requestAccessibility() async {
+        permissionsProbe.requestAccessibilityPrompt()
+        await refreshPermissions()
+    }
+
+    func completeOnboarding() {
+        hasCompletedOnboarding = true
+        UserDefaults.standard.set(true, forKey: Self.onboardingDefaultsKey)
+    }
+
+    func reopenOnboarding() {
+        hasCompletedOnboarding = false
+        UserDefaults.standard.set(false, forKey: Self.onboardingDefaultsKey)
+    }
+
+    static func filterPermissionState(_ status: WebsiteBlockingStatus) -> PermissionState {
+        switch status {
+        case .active, .ready: return .satisfied
+        case .needsPermission: return .needsApproval
+        case .unavailable: return .unavailable
+        }
+    }
+
+    static func loginPermissionState(_ status: HelperRegistrationStatus) -> PermissionState {
+        switch status {
+        case .enabled: return .satisfied
+        case .requiresApproval: return .needsApproval
+        case .notRegistered, .notFound: return .notDetermined
+        case .unavailable: return .unavailable
+        }
+    }
+
+    // MARK: Room / blocklist editing
+
+    func addDomain(_ pattern: String, to blocklistID: UUID) async {
+        do {
+            let next = try policyEditor.addDomain(pattern, to: blocklistID, in: policy)
+            await applyEditedPolicy(next)
+            systemMessage = "Blocked \(pattern.trimmingCharacters(in: .whitespacesAndNewlines))."
+        } catch {
+            systemMessage = "Could not add site: \(Self.describe(error))"
+        }
+    }
+
+    func removeDomain(_ normalizedPattern: String, from blocklistID: UUID) async {
+        do {
+            let next = try policyEditor.removeDomain(normalizedPattern: normalizedPattern, from: blocklistID, in: policy)
+            await applyEditedPolicy(next)
+            systemMessage = "Removed \(normalizedPattern)."
+        } catch {
+            systemMessage = "Could not remove site: \(Self.describe(error))"
+        }
+    }
+
+    func addApp(from url: URL, to blocklistID: UUID) async {
+        guard let rule = Self.appRule(from: url) else {
+            systemMessage = "Could not read a bundle identifier from \(url.lastPathComponent)."
+            return
+        }
+        do {
+            let next = try policyEditor.addApp(rule, to: blocklistID, in: policy)
+            await applyEditedPolicy(next)
+            systemMessage = "Blocked \(rule.displayName)."
+        } catch {
+            systemMessage = "Could not add app: \(Self.describe(error))"
+        }
+    }
+
+    func removeApp(_ bundleIdentifier: String, from blocklistID: UUID) async {
+        do {
+            let next = try policyEditor.removeApp(bundleIdentifier: bundleIdentifier, from: blocklistID, in: policy)
+            await applyEditedPolicy(next)
+            systemMessage = "Removed \(bundleIdentifier)."
+        } catch {
+            systemMessage = "Could not remove app: \(Self.describe(error))"
+        }
+    }
+
+    func createRoom(named name: String) {
+        do {
+            let next = try policyEditor.createBlocklist(named: name, in: policy)
+            policy = next
+            _ = try? protectionRuntimeController.persistPolicy(next)
+            systemMessage = "Created room \(name.trimmingCharacters(in: .whitespacesAndNewlines))."
+        } catch {
+            systemMessage = "Could not create room: \(Self.describe(error))"
+        }
+    }
+
+    func deleteRoom(_ blocklistID: UUID) async {
+        do {
+            let next = try policyEditor.deleteBlocklist(blocklistID, in: policy)
+            await applyEditedPolicy(next)
+            systemMessage = "Room deleted."
+        } catch {
+            systemMessage = "Could not delete room: \(Self.describe(error))"
+        }
+    }
+
+    func setRoom(_ blocklistID: UUID, enabled: Bool) async {
+        do {
+            let next = try policyEditor.setBlocklist(blocklistID, enabled: enabled, in: policy)
+            await applyEditedPolicy(next)
+        } catch {
+            systemMessage = "Could not change room: \(Self.describe(error))"
+        }
+    }
+
+    var isBrowserBundleIdentifier: (String) -> Bool {
+        { identifier in Self.knownBrowserBundleIdentifiers.contains(identifier.lowercased()) }
+    }
+
+    private func applyEditedPolicy(_ newPolicy: FermoPolicy) async {
+        policy = newPolicy
+        do {
+            try protectionRuntimeController.persistPolicy(newPolicy)
+        } catch {
+            systemMessage = "Saved locally but could not persist shared state: \(Self.describe(error))"
+        }
+
+        if !newPolicy.activeSessions(at: Date()).isEmpty {
+            try? await websiteBlockingController.refreshRules(policy: newPolicy)
+            interruptProtectedAppsOnce()
+        }
+    }
+
+    // MARK: Quick Block
+
+    func startQuickBlock(room: Blocklist, duration: TimeInterval, rigor: ContractRigor) async {
+        isUpdatingWebsiteFilter = true
+        defer { isUpdatingWebsiteFilter = false }
+
+        do {
+            let draft = QuickBlockDraft(blocklist: room, duration: duration, rigor: rigor)
+            let newPolicy = try draft.activePolicy()
+            try await systemExtensionActivationController.activate()
+            try await websiteBlockingController.activate(policy: newPolicy)
+            policy = newPolicy
+            try protectionRuntimeController.persistPolicy(newPolicy)
+            startAppInterruptionMonitor()
+            let report = interruptProtectedAppsOnce()
+            let helperMessage = registerHelperForActiveContractIfPossible()
+            websiteBlockingStatus = await websiteBlockingController.status()
+            let interruption = report.interruptedApps.isEmpty
+                ? "No matching distracting app was running."
+                : Self.describe(report)
+            systemMessage = "Quick Block '\(room.name)' started. \(interruption) \(helperMessage)"
+        } catch {
+            websiteBlockingStatus = await websiteBlockingController.status()
+            systemMessage = "Quick Block could not start: \(Self.describe(error))"
+        }
+    }
+
+    // MARK: Evidence export
+
+    func markdown(for entry: EvidenceLogEntry) -> String {
+        EvidenceMarkdownRenderer().render(entry)
+    }
+
+    func ledgerMarkdown() -> String {
+        EvidenceMarkdownRenderer().renderLedger(policy.evidenceLog)
+    }
+
+    static func appRule(from url: URL) -> AppRule? {
+        guard let bundle = Bundle(url: url), let identifier = bundle.bundleIdentifier else {
+            return nil
+        }
+        let name = url.deletingPathExtension().lastPathComponent
+        return AppRule(bundleIdentifier: identifier, displayName: name)
+    }
+
+    static let knownBrowserBundleIdentifiers: Set<String> = [
+        "com.apple.safari",
+        "com.google.chrome",
+        "com.google.chrome.canary",
+        "org.mozilla.firefox",
+        "company.thebrowser.browser", // Arc
+        "company.thebrowser.dia", // Dia
+        "com.microsoft.edgemac",
+        "com.brave.browser",
+        "com.operasoftware.opera",
+        "com.vivaldi.vivaldi"
+    ]
 }

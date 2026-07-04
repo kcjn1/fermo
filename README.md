@@ -48,6 +48,20 @@ The native app can now start a real focus contract from local presets instead of
 
 Active Session is now the dogfood control surface: timer, runtime health, rule boundary, Soft stop with reason, Locked/Emergency break-glass, proof-due state, and `LockedModeGuard`-backed rule edit locking.
 
+## Usable Product Surfaces
+
+The app now works as a self-contained focus blocker, not only a spike harness:
+
+- **First-run onboarding**: on first launch Fermo presents a permissions sheet for the Network Extension content filter (required), Login Item/helper, notifications, and Accessibility. Each row shows live status and a request/settings action. Re-runnable from Preferences.
+- **Freedom-style blocking**: website rules are enforced at the network layer, so a blocked domain is blocked in **every** browser (Safari, Chrome, Arc, Dia, Firefox…). Apps are blocked by interruption. Adding a browser to the app list warns that Fermo will quit the whole browser — block the site instead.
+- **Rooms editor**: add/remove blocked websites (validated) and blocked apps via a native app picker (`.application` importer → bundle id + name). Weakening edits are still routed through `LockedModeGuard` during Locked/Emergency sessions; adding blocks is always allowed and pushed live into an active session.
+- **Quick Block**: start a room immediately for a chosen duration and rigor without writing a task/outcome contract. The full Focus Contract flow remains for wedge sessions.
+- **Evidence export**: export a single session or the whole ledger to Markdown via a save panel; default folder configurable in Preferences.
+- **Preferences**: default preset/rigor/duration, permission status + re-run setup, evidence folder, and privacy summary.
+- **Diagnostics**: the raw website/app/helper spikes now live in a collapsed "Diagnostics (advanced)" section in System Health, out of the normal product flow.
+
+Scheduling (recurring weekly blocks) is intentionally deferred to a later phase.
+
 ## Run Checks
 
 ```sh

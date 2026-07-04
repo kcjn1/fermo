@@ -16,6 +16,18 @@ public protocol WebsiteBlockingControlling: Sendable {
     func status() async -> WebsiteBlockingStatus
     func activate(policy: FermoPolicy) async throws
     func deactivate() async throws
+    /// Install (but leave disabled) the filter configuration so onboarding can
+    /// prompt for approval before any session runs.
+    func prepare() async throws
+    /// Rewrite the on-disk rule snapshot the running content filter reads, without
+    /// touching the Network Extension configuration. Used to push live rule edits
+    /// into an already-active session.
+    func refreshRules(policy: FermoPolicy) async throws
+}
+
+public extension WebsiteBlockingControlling {
+    func prepare() async throws {}
+    func refreshRules(policy: FermoPolicy) async throws {}
 }
 
 public struct NetworkExtensionFilterConfiguration: Sendable {
@@ -70,24 +82,38 @@ public struct NetworkExtensionWebsiteBlockingController: WebsiteBlockingControll
 
         #if canImport(NetworkExtension)
         let manager = try await loadFilterManager()
-        let providerConfiguration = NEFilterProviderConfiguration()
-        providerConfiguration.filterSockets = true
-        providerConfiguration.filterDataProviderBundleIdentifier = configuration.dataProviderBundleIdentifier
-        providerConfiguration.organization = configuration.organization
-        providerConfiguration.serverAddress = "Fermo local content filter"
-        providerConfiguration.vendorConfiguration = [
-            "FermoAppGroupIdentifier": appGroupIdentifier,
-            "FermoSnapshotFileName": configuration.snapshotFileName
-        ]
-
         manager.localizedDescription = configuration.localizedDescription
-        manager.providerConfiguration = providerConfiguration
+        manager.providerConfiguration = makeProviderConfiguration(appGroupIdentifier: appGroupIdentifier)
         manager.grade = .firewall
         manager.isEnabled = true
         try await saveFilterManager(manager)
         #else
         throw SystemIntegrationError.requiresSignedAppExtension
         #endif
+    }
+
+    /// Install the filter configuration ahead of time (disabled) so first-run
+    /// onboarding can surface the macOS approval prompt without blocking anything
+    /// yet. Starting a session later flips `isEnabled` on.
+    public func prepare() async throws {
+        let appGroupIdentifier = try requiredAppGroupIdentifier()
+        try writeSnapshot(.inactive(), appGroupIdentifier: appGroupIdentifier)
+
+        #if canImport(NetworkExtension)
+        let manager = try await loadFilterManager()
+        manager.localizedDescription = configuration.localizedDescription
+        manager.providerConfiguration = makeProviderConfiguration(appGroupIdentifier: appGroupIdentifier)
+        manager.grade = .firewall
+        manager.isEnabled = false
+        try await saveFilterManager(manager)
+        #else
+        throw SystemIntegrationError.requiresSignedAppExtension
+        #endif
+    }
+
+    public func refreshRules(policy: FermoPolicy) async throws {
+        let appGroupIdentifier = try requiredAppGroupIdentifier()
+        try writeSnapshot(ContentFilterRuleSnapshot(policy: policy), appGroupIdentifier: appGroupIdentifier)
     }
 
     public func deactivate() async throws {
@@ -135,6 +161,19 @@ public struct NetworkExtensionWebsiteBlockingController: WebsiteBlockingControll
     }
 
     #if canImport(NetworkExtension)
+    private func makeProviderConfiguration(appGroupIdentifier: String) -> NEFilterProviderConfiguration {
+        let providerConfiguration = NEFilterProviderConfiguration()
+        providerConfiguration.filterSockets = true
+        providerConfiguration.filterDataProviderBundleIdentifier = configuration.dataProviderBundleIdentifier
+        providerConfiguration.organization = configuration.organization
+        providerConfiguration.serverAddress = "Fermo local content filter"
+        providerConfiguration.vendorConfiguration = [
+            "FermoAppGroupIdentifier": appGroupIdentifier,
+            "FermoSnapshotFileName": configuration.snapshotFileName
+        ]
+        return providerConfiguration
+    }
+
     private func loadFilterManager() async throws -> NEFilterManager {
         let manager = NEFilterManager.shared()
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
