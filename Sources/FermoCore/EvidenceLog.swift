@@ -141,6 +141,21 @@ public struct EvidenceMarkdownRenderer: Sendable {
         return lines.joined(separator: "\n") + "\n"
     }
 
+    /// Render an entire evidence ledger as a single Markdown document, newest first.
+    public func renderLedger(_ entries: [EvidenceLogEntry]) -> String {
+        guard !entries.isEmpty else {
+            return "# Fermo Evidence Ledger\n\nNo proof recorded yet.\n"
+        }
+
+        let ordered = entries.sorted { $0.endedAt > $1.endedAt }
+        var document = "# Fermo Evidence Ledger\n\n\(ordered.count) recorded sessions.\n"
+        for entry in ordered {
+            document += "\n---\n\n"
+            document += render(entry)
+        }
+        return document
+    }
+
     private static func renderArtifact(_ artifact: EvidenceArtifact) -> String {
         switch artifact {
         case .note(let value):
